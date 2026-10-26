@@ -1,9 +1,16 @@
 name: Build extension
 
-# Every push and pull request: check the code and build the extension zip
-# (downloadable from the run's "Artifacts").
-# Tag v* (e.g. v1.2.0): also publish it as a GitHub Release, so people can
-# download it and load it in Chrome with "Load unpacked".
+# Transparent, traceable builds:
+# - every push and pull request checks the code and builds the zip with
+#   scripts/package.sh, twice, and fails if the two builds differ
+#   (the build is reproducible: same commit -> same SHA-256);
+# - the job summary lists the commit, the SHA-256 and every file in the zip;
+# - pushes to main and tags get a signed build-provenance attestation
+#   (who built it, from which commit, with which workflow);
+# - tags v* publish a GitHub Release with the zip, SHA256SUMS.txt and links
+#   back to this run. Releases are only ever made by this workflow.
+#
+# Actions are pinned to full commit SHAs so the build cannot change underneath us.
 
 on:
   push:
@@ -13,23 +20,29 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write        # create the release (tags only)
+      id-token: write        # sign the provenance attestation
+      attestations: write    # store the attestation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 20
 
       - name: Check manifest and scripts
         run: |
           node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'))"
-          for f in *.js; do node --check "$f"; done
-          node -e "JSON.parse(require('fs').readFileSync('lib/cedict.json','utf8')); JSON.parse(require('fs').readFileSync('lib/hanzi.json','utf8'))"
+          for f in *.js features/*.js; do [ -f "$f" ] && node --check "$f"; done
+          for f in lib/*.json; do node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))"; done
 
       - name: Read version
         id: version
@@ -41,40 +54,73 @@ jobs:
             exit 1
           fi
 
-      - name: Package
+      - name: Build (twice, must be identical)
+        id: build
         run: |
-          name="xiaopin-${{ steps.version.outputs.version }}"
-          mkdir -p "dist/$name"
-          cp manifest.json background.js content.js inject.js subtitles.js \
-             options.html options.js overlay.css LICENSE THIRD_PARTY_NOTICES.md "dist/$name/"
-          cp -r lib assets icons "dist/$name/"
-          cat > "dist/$name/INSTALL.txt" <<'EOF'
-          Xiaopin - Pinyin Subtitles
+          scripts/package.sh dist
+          scripts/package.sh dist-check
+          if ! cmp -s dist/SHA256SUMS.txt dist-check/SHA256SUMS.txt; then
+            echo "::error::Build is not reproducible"; cat dist/SHA256SUMS.txt dist-check/SHA256SUMS.txt; exit 1
+          fi
+          sha=$(cut -d' ' -f1 dist/SHA256SUMS.txt)
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "zip=dist/xiaopin-${{ steps.version.outputs.version }}.zip" >> "$GITHUB_OUTPUT"
 
-          1. Open chrome://extensions (or edge://extensions, brave://extensions).
-          2. Turn on "Developer mode".
-          3. Click "Load unpacked" and select this folder.
-          4. Click the extension icon to add an OpenRouter or Anthropic API key
-             if you want AI translation (optional).
-          EOF
-          (cd dist && zip -qr "$name.zip" "$name")
-          echo "ZIP=dist/$name.zip" >> "$GITHUB_ENV"
-          echo "DIR=dist/$name" >> "$GITHUB_ENV"
-          ls -la dist
+      - name: Summary
+        run: |
+          {
+            echo "## Xiaopin ${{ steps.version.outputs.version }}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | [\`${GITHUB_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${GITHUB_SHA}) |"
+            echo "| Ref | \`${GITHUB_REF}\` |"
+            echo "| SHA-256 | \`${{ steps.build.outputs.sha256 }}\` |"
+            echo "| Reproducible | yes, two builds were byte-identical |"
+            echo
+            echo "<details><summary>Files in the zip</summary>"
+            echo
+            echo '```'
+            unzip -Z1 "${{ steps.build.outputs.zip }}"
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: xiaopin-${{ steps.version.outputs.version }}
-          path: ${{ env.DIR }}
+          path: |
+            ${{ steps.build.outputs.zip }}
+            dist/SHA256SUMS.txt
+
+      - name: Attest build provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.build.outputs.zip }}
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          files: ${{ env.ZIP }}
+          files: |
+            ${{ steps.build.outputs.zip }}
+            dist/SHA256SUMS.txt
           generate_release_notes: true
           body: |
             ## Install
             1. Download **xiaopin-${{ steps.version.outputs.version }}.zip** below and unzip it.
             2. Open `chrome://extensions`, turn on **Developer mode**.
             3. Click **Load unpacked** and pick the unzipped `xiaopin-${{ steps.version.outputs.version }}` folder.
+
+            ## Where this build comes from
+            - Commit: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+            - Built by workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            - SHA-256 of the zip: `${{ steps.build.outputs.sha256 }}`
+
+            ## Verify it
+            ```
+            gh attestation verify xiaopin-${{ steps.version.outputs.version }}.zip --repo ${{ github.repository }}
+            sha256sum -c SHA256SUMS.txt
+            ```
+            Or rebuild it yourself from the tag with `scripts/package.sh` and compare the SHA-256.

@@ -56,9 +56,27 @@ To update, download the new zip, replace the folder, and click ↻ on the extens
 
 Prefer the latest code? Clone the repository and load the folder itself, or grab the zip from any [Actions run](https://github.com/pim97/Language-Reactor-alternative/actions/workflows/build.yml) under *Artifacts*.
 
+### Verifying a release
+
+Every release is built in public by the [Build extension](https://github.com/pim97/Language-Reactor-alternative/actions/workflows/build.yml) workflow. Nothing is uploaded by hand, and you can trace each zip back to the exact commit and run:
+
+- **Release notes** link to the commit and to the workflow run that built the zip. That run's log and summary show every step, the SHA-256 and every file in the zip.
+- **Build provenance**: each zip has a signed [GitHub attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) that says which repository, commit and workflow produced it. Check it with the GitHub CLI:
+  ```
+  gh attestation verify xiaopin-1.2.0.zip --repo pim97/Language-Reactor-alternative
+  ```
+- **Checksum**: `SHA256SUMS.txt` is attached to every release: `sha256sum -c SHA256SUMS.txt`.
+- **Reproducible build**: the zip is byte-identical for the same commit (fixed file order, timestamps and permissions). CI builds it twice and fails if the two differ. To rebuild it yourself and compare the SHA-256:
+  ```
+  git clone https://github.com/pim97/Language-Reactor-alternative && cd Language-Reactor-alternative
+  git checkout v1.2.0
+  scripts/package.sh        # needs bash, git, node, zip, sha256sum (Linux/macOS/WSL)
+  ```
+- All GitHub Actions in the workflow are pinned to full commit SHAs.
+
 ### Making a release
 
-Bump `version` in `manifest.json`, commit, then tag it: `git tag v1.2.1 && git push --tags`. The workflow checks that the tag matches the manifest and publishes the zip as a release.
+Bump `version` in `manifest.json`, commit, then tag it: `git tag v1.2.1 && git push origin v1.2.1`. The workflow checks that the tag matches the manifest, builds, attests and publishes the release.
 
 ## How it works
 
