@@ -78,6 +78,19 @@
     return charLevelMap;
   }
 
+  // "HSK 4+" badge element for a Chinese line, or null when it has no Chinese words.
+  function lineBadge(lineEl) {
+    const { max, beyond } = lineLevel([...lineEl.querySelectorAll('.crpy-w')].map(el => el.dataset.w));
+    if (!max && !beyond) return null;
+    const badge = document.createElement('span');
+    badge.className = 'crpy-vl-linelvl crpy-vl-lv' + (max || 7);
+    badge.textContent = max ? `HSK ${max}${beyond ? '+' : ''}` : 'HSK 6+';
+    badge.title = beyond
+      ? 'Highest HSK level in this line; + means it also has words outside HSK'
+      : 'Highest HSK level in this line';
+    return badge;
+  }
+
   // Highest HSK level in a Chinese line, and whether it has words beyond HSK.
   function lineLevel(words) {
     let max = 0, beyond = false;
@@ -217,19 +230,23 @@
       { key: 'vlHskBadges', label: 'Show HSK level on words', default: true },
     ],
 
-    // A small "HSK 4+" badge at the end of each Chinese line on the video.
+    // A small "HSK 4+" badge at the end of each Chinese line on the video …
     onLineRendered(linesEl, a) {
       if (!a.view.vlHskBadges || !Object.keys(hsk).length) return;
       for (const line of linesEl.querySelectorAll('.crpy-zh')) {
-        const { max, beyond } = lineLevel([...line.querySelectorAll('.crpy-w')].map(el => el.dataset.w));
-        if (!max && !beyond) continue;
-        const badge = document.createElement('span');
-        badge.className = 'crpy-vl-linelvl crpy-vl-lv' + (max || 7);
-        badge.textContent = max ? `HSK ${max}${beyond ? '+' : ''}` : 'HSK 6+';
-        badge.title = beyond
-          ? 'Highest HSK level in this line; + means it also has words outside HSK'
-          : 'Highest HSK level in this line';
-        line.appendChild(badge);
+        const badge = lineBadge(line);
+        if (badge) line.appendChild(badge);
+      }
+    },
+
+    // … and next to the time of every line in the history panel.
+    onHistoryRendered(listEl, a) {
+      if (!a.view.vlHskBadges || !Object.keys(hsk).length) return;
+      for (const item of listEl.querySelectorAll('.crpy-hist-item')) {
+        const zh = item.querySelector('.crpy-hist-zh');
+        const time = item.querySelector('.crpy-hist-time');
+        const badge = zh && time && lineBadge(zh);
+        if (badge) time.appendChild(badge);
       }
     },
 

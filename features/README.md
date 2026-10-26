@@ -30,6 +30,9 @@ Xiaopin.register({
   // After the overlay subtitle card was redrawn.
   onLineRendered(linesEl, api) {},
 
+  // After the history list was redrawn (items: .crpy-hist-item > .crpy-hist-time / .crpy-hist-zh / .crpy-hist-en).
+  onHistoryRendered(listEl, api) {},
+
   // Extra section in the word popup: return html, a Promise of html, or nothing.
   popup(word, info, api) { return ''; },  // info: { word, py, line: {zh, en}, entries, chars }
   onPopupRendered(sectionEl, word, api) {},

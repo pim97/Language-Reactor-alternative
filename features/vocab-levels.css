@@ -69,6 +69,13 @@
   border: 1px solid currentColor;
   opacity: 0.9;
 }
+/* in the history panel: small, next to the time */
+.crpy-root .crpy-hist-time .crpy-vl-linelvl {
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 10px;
+  vertical-align: 1px;
+}
 .crpy-root .crpy-vl-lv1, .crpy-root .crpy-vl-lv2 { color: var(--crpy-hsk-easy); }
 .crpy-root .crpy-vl-lv3, .crpy-root .crpy-vl-lv4 { color: var(--crpy-hsk-mid); }
 .crpy-root .crpy-vl-lv5, .crpy-root .crpy-vl-lv6 { color: var(--crpy-hsk-hard); }

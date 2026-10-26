@@ -438,6 +438,7 @@
           ${l.en ? `<div class="crpy-hist-en">${esc(l.en)}</div>` : ''}
           ${l.zh ? lineActionsHtml(i) : ''}
         </div>`).join('') || '<div class="crpy-hist-empty">Lines appear here as they are spoken.</div>';
+      callFeatures('onHistoryRendered', list, api);
       if (atBottom || lastCurrent === -1) list.scrollTop = list.scrollHeight;
     }
     if (current !== lastCurrent) {
