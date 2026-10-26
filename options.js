@@ -11,6 +11,7 @@ const DEFAULTS = {
   pauseOnHover: true,
   toneColors: true,
   explainLang: 'en',
+  extraLang: '',
   fontSize: 30,
 };
 

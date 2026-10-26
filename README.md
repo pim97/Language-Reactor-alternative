@@ -15,6 +15,7 @@ Meet **Xiaopin**, the red panda (小熊猫) who reads along with you.
 ## Features
 
 - **Three-line subtitles**: pinyin above each character, then Chinese characters, then English.
+- **Extra line in your own language** (optional, Dutch for now): a fourth line under the English that gives the *feel* of the line the way a native speaker would say it, with matching idioms instead of literal words (心里不舒服 → "het zit me niet lekker").
 - **Tone colours**: 1st tone red · 2nd orange · 3rd green · 4th blue · neutral grey, on both pinyin and characters, so tones stick visually.
 - **Hover a word** for pinyin and meanings (CC-CEDICT). The video pauses while you read.
 - **Character breakdown**: see how each character is built from simpler parts, which part gives the meaning and which the sound (好 = 女 woman + 子 child; 妈 = 女 meaning + 马 sound). Click a part to drill down.

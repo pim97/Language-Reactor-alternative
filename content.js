@@ -9,6 +9,7 @@
     hideNative: true, pauseOnHover: true, showHistory: false, toneColors: true,
     hideCard: false,   // true = subtitles only in the history panel, not on the video
     explainLang: 'en', // language of AI explanations: 'en' | 'nl'
+    extraLang: '',     // extra subtitle line under the English: '' (off) | 'nl'
   };
   let view = { ...VIEW_DEFAULTS };
 
@@ -23,6 +24,10 @@
     burnedIn: '',         // subtitle locale burned into the video stream, if any
     status: 'Waiting for video…',
     port: null,
+    extra: [],            // extra-language line (Dutch) as cues, same ids/timing as its source
+    extraFrom: null,      // 'zh' | 'en': which track the extra line was translated from
+    extraPort: null,
+    extraKey: '',         // what the running/finished extra translation was started for
   };
 
   // ---------- feature plugins ----------
@@ -77,7 +82,9 @@
 
   function reset(mediaId) {
     if (st.port) { st.port.disconnect(); st.port = null; }
-    Object.assign(st, { mediaId, en: [], zh: [], enSource: null, zhSource: null, offset: 0, burnedIn: '' });
+    if (st.extraPort) { st.extraPort.disconnect(); st.extraPort = null; }
+    Object.assign(st, { mediaId, en: [], zh: [], enSource: null, zhSource: null, offset: 0, burnedIn: '',
+      extra: [], extraFrom: null, extraKey: '' });
     st.title = videoTitle();
     if (root) root.classList.remove('crpy-burned');
     historyCount = -1;
@@ -239,6 +246,54 @@
     });
   }
 
+  // ---------- extra language line (Dutch) ----------
+
+  // Translated from the original Chinese; but when the Chinese itself was made by
+  // the AI from English (Crunchyroll), from the English the show really has.
+  function extraSource() {
+    if (st.zhSource && st.zhSource !== 'ai' && st.zh.some(c => c.text)) return 'zh';
+    if (st.enSource && st.enSource !== 'ai' && st.en.some(c => c.text)) return 'en';
+    return null;
+  }
+
+  // Start (once per video, language and source) the extra-line translation.
+  // Called on every refresh, so it must stay a cheap check.
+  function ensureExtra() {
+    const lang = view.extraLang;
+    if (!lang || !st.mediaId || st.extraPort) return;
+    const from = extraSource();
+    if (!from) return;
+    const src = (from === 'zh' ? st.zh : st.en).filter(c => c.text);
+    const key = `${st.mediaId}|${lang}|${from}|${src.length}`;
+    if (st.extraKey === key) return;
+    st.extraKey = key;
+    st.extraFrom = from;
+    st.extra = src.map(c => ({ ...c, text: '' }));
+    const byId = new Map(st.extra.map(c => [c.id, c]));
+    const mediaId = st.mediaId;
+    const port = chrome.runtime.connect({ name: 'translate' });
+    st.extraPort = port;
+    port.onMessage.addListener(m => {
+      if (st.mediaId !== mediaId) return;
+      if (m.type === 'progress') {
+        for (const [id, text] of Object.entries(m.results)) { const c = byId.get(+id); if (c) c.text = text; }
+        lastKey = ''; historyCount = -1;
+      } else if (m.type === 'done' || m.type === 'error') {
+        if (m.type === 'error') setStatus('Dutch line: ' + m.error);
+        port.disconnect(); st.extraPort = null;
+      }
+    });
+    port.onDisconnect.addListener(() => { if (st.extraPort === port) st.extraPort = null; });
+    port.postMessage({
+      type: 'start',
+      direction: `${from}2${lang}`,
+      mediaId,
+      title: st.title || videoTitle(),
+      lines: src.map(c => ({ id: c.id, text: c.text })),
+      fromId: currentId(src),
+    });
+  }
+
   // First line that hasn't finished yet at the current playback time.
   function currentId(cues) {
     const t = video ? video.currentTime : 0;
@@ -251,6 +306,7 @@
       const src = st.direction === 'zh2en' ? st.zh : st.en;
       st.port.postMessage({ type: 'prioritize', fromId: currentId(src) });
     }
+    if (st.extraPort) st.extraPort.postMessage({ type: 'prioritize', fromId: currentId(st.extra) });
   }
 
   // ---------- own subtitle file ----------
@@ -289,18 +345,28 @@
   // track), with the English that overlaps it. Falls back to English-only lines.
   function pairedLines() {
     const zh = st.zh.filter(c => c.text);
-    if (!zh.length) return st.en.map(c => ({ start: c.start, end: c.end, zh: '', en: c.text }));
+    const showExtra = !!view.extraLang && st.extra.length;
+    const extraById = new Map(showExtra ? st.extra.map(c => [c.id, c]) : []);
+    if (!zh.length) {
+      return st.en.map(c => ({ start: c.start, end: c.end, zh: '', en: c.text,
+        nl: st.extraFrom === 'en' ? extraById.get(c.id)?.text || '' : '' }));
+    }
     const sameIds = st.zhSource === 'ai' || st.enSource === 'ai';
     const enById = new Map(st.en.map(c => [c.id, c]));
+    const overlap = (cues, start, end) => {
+      const mid = (start + end) / 2;
+      return cues.filter(e => e.start <= mid && e.end >= mid && e.text).map(e => e.text).join(' ');
+    };
     return zh.map(c => {
       const start = c.start + st.offset, end = c.end + st.offset;
-      let en = '';
-      if (sameIds) en = enById.get(c.id)?.text || '';
-      else {
-        const mid = (start + end) / 2;
-        en = st.en.filter(e => e.start <= mid && e.end >= mid).map(e => e.text).join(' ');
+      const en = sameIds ? enById.get(c.id)?.text || '' : overlap(st.en, start, end);
+      // The extra line shares ids with the track it came from.
+      let nl = '';
+      if (showExtra) {
+        if (st.extraFrom === 'zh' || sameIds) nl = extraById.get(c.id)?.text || '';
+        else nl = overlap(st.extra, start, end);
       }
-      return { start, end, zh: c.text, en };
+      return { start, end, zh: c.text, en, nl };
     });
   }
 
@@ -383,6 +449,7 @@
   function refreshAll() {
     lastKey = ''; historyCount = -1; lastCurrent = -1;
     callFeatures('onChange', api);
+    ensureExtra();
     renderPanel();
   }
 
@@ -407,13 +474,18 @@
     const t = video.currentTime;
     const zh = st.zh.length ? CrpySubs.activeAt(st.zh, t - st.offset).filter(c => c.text) : [];
     const en = view.showEnglish && !burnedEnglish() ? CrpySubs.activeAt(st.en, t).filter(c => c.text) : [];
-    const key = zh.map(c => c.id).join(',') + '|' + en.map(c => c.id).join(',') + '|' + st.offset;
+    // The extra (Dutch) line follows the timing of the track it was translated from.
+    const nl = view.extraLang && st.extra.length
+      ? CrpySubs.activeAt(st.extra, st.extraFrom === 'zh' ? t - st.offset : t).filter(c => c.text) : [];
+    const key = zh.map(c => c.id).join(',') + '|' + en.map(c => c.id).join(',') + '|' +
+      nl.map(c => c.id).join(',') + '|' + st.offset;
     if (key !== lastKey && !popupPinned) {
       lastKey = key;
       const showZh = view.showPinyin || view.showHanzi;
       let html = '';
       if (showZh) for (const c of zh) html += `<div class="crpy-zh">${zhHtml(c.text)}</div>`;
       for (const c of en) html += `<div class="crpy-en">${esc(c.text).replace(/\n/g, '<br>')}</div>`;
+      for (const c of nl) html += `<div class="crpy-nl" lang="${esc(view.extraLang)}">${esc(c.text).replace(/\n/g, '<br>')}</div>`;
       if (html && zh.length) html += lineActionsHtml(lineIndexAt(pairedLines(), t));
       linesEl.innerHTML = html;
       callFeatures('onLineRendered', linesEl, api);
@@ -436,6 +508,7 @@
           <div class="crpy-hist-time">${fmtTime(l.start)}</div>
           ${l.zh ? `<div class="crpy-hist-zh">${zhHtml(l.zh, { showPinyin: true, showHanzi: true })}</div>` : ''}
           ${l.en ? `<div class="crpy-hist-en">${esc(l.en)}</div>` : ''}
+          ${l.nl ? `<div class="crpy-hist-nl">${esc(l.nl)}</div>` : ''}
           ${l.zh ? lineActionsHtml(i) : ''}
         </div>`).join('') || '<div class="crpy-hist-empty">Lines appear here as they are spoken.</div>';
       callFeatures('onHistoryRendered', list, api);
@@ -477,6 +550,7 @@
       const mode = layoutMode();
       root.querySelectorAll('[data-a="layout"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === mode)));
       root.querySelectorAll('[data-a="lang"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === view.explainLang)));
+      root.querySelectorAll('[data-a="extra"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (view.extraLang || ''))));
       historyEl.hidden = !view.showHistory;
     }
     document.documentElement.classList.toggle('crpy-hide-native', !!view.hideNative);
@@ -848,6 +922,11 @@
         ${sw('showEnglish', 'English')}
         ${sw('toneColors', 'Tone colours')}
         <div class="crpy-row">Text size <button data-a="smaller">A−</button><button data-a="bigger">A+</button></div>
+        <div class="crpy-row crpy-lang-row">Extra line
+          <span class="crpy-seg" role="group" aria-label="Extra subtitle line">
+            <button data-a="extra" data-v="">Off</button>
+            <button data-a="extra" data-v="nl">Nederlands</button>
+          </span></div>
         <div class="crpy-row crpy-lang-row">Explanations in
           <span class="crpy-seg" role="group" aria-label="Language of explanations">
             <button data-a="lang" data-v="en">English</button>
@@ -991,6 +1070,7 @@
       if (a === 'menu') { panelEl.hidden = !panelEl.hidden; renderPanel(); }
       if (a === 'layout') { const b = e.target.closest('[data-a="layout"]'); setLayout(b.dataset.v); }
       if (a === 'lang') chrome.storage.sync.set({ explainLang: e.target.closest('[data-a="lang"]').dataset.v });
+      if (a === 'extra') chrome.storage.sync.set({ extraLang: e.target.closest('[data-a="extra"]').dataset.v });
       if (a === 'closehist') setLayout('video');
       if (a === 'file') fileInput.click();
       if (a === 'clearfile') clearFile();

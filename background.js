@@ -186,6 +186,14 @@ chrome.runtime.onConnect.addListener(port => {
   });
 });
 
+// One saved translation per video and direction.
+const CACHE_PREFIX = {
+  en2zh: 'tr:',
+  zh2en: 'tren2:',   // made with the context-aware prompt (old tren: ones are ignored)
+  zh2nl: 'trnl:',    // extra Dutch line, from the Chinese
+  en2nl: 'trnlen:',  // extra Dutch line, from the English (when the Chinese is itself AI-made)
+};
+
 async function translateEpisode({ mediaId, title, lines, force, direction = 'en2zh' }, job, send) {
   const s = await settings();
   const key = s.provider === 'anthropic' ? s.anthropicKey : s.openrouterKey;
@@ -194,11 +202,10 @@ async function translateEpisode({ mediaId, title, lines, force, direction = 'en2
 
   // One saved translation per episode, kept whatever model made it. "Translate again"
   // (force) starts from scratch and overwrites it.
-  // tren2: Chinese→English made with the context-aware prompt (old tren: ones are ignored).
-  const cacheKey = direction === 'zh2en' ? `tren2:${mediaId}` : `tr:${mediaId}`;
-  const raw = force ? null : direction === 'zh2en'
-    ? (await chrome.storage.local.get(cacheKey))[cacheKey]
-    : await loadCached(mediaId);
+  const cacheKey = `${CACHE_PREFIX[direction] || 'tr:'}${mediaId}`;
+  const raw = force ? null : direction === 'en2zh'
+    ? await loadCached(mediaId)
+    : (await chrome.storage.local.get(cacheKey))[cacheKey];
 
   // The cache remembers, per line, the source text it translated ({v: 2, lines:
   // {id: {s, t}}}). A line is reused only while its text is unchanged, so another
@@ -294,17 +301,36 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
+const SYSTEM_TO_NL = `You write the Dutch (Nederlands) subtitle line for a learner of Mandarin who is Dutch. The Chinese and an English line are already on screen; your line should give the FEEL of what is said, the way a native Dutch speaker would say it in that same moment.
+- The lines are consecutive dialogue from one video; read them as a whole and use the surrounding lines and the title for context.
+- Keep the emotion, tone and register: casual, teasing, rude, tender, sarcastic, polite, childish, old-fashioned. Spoken Dutch, not written Dutch.
+- When the source uses an idiom, saying, slang or a vivid image, use a Dutch expression with the same feeling instead of a literal rendering (e.g. 心里不舒服 → "het zit me niet lekker", 吃不消 → "dat trek ik niet", 加油 → "zet 'm op!", 马马虎虎 → "gaat wel"). Only when no Dutch expression fits, say it plainly.
+- Translate what the speaker MEANS and wants to achieve (comfort, warn, tease, brush off), not the surface words: 别跟他一般见识 is "trek je niks van hem aan", not "doe niet moeilijk over hem".
+- Stay faithful to the meaning; do not add things that are not there. Keep it short like a subtitle.
+- Write correct, natural Dutch: right de/het, word order and spelling, as a native speaker would check it.
+- Put the Dutch in the "zh" field of each item (the field name is fixed). Return every id exactly once.`;
+
 async function translateChunk(provider, key, model, title, chunk, direction) {
-  const zh2en = direction === 'zh2en';
+  // Field name tells the model which language the source line is in.
+  const field = { en2zh: 'en', zh2en: 'zh_source', zh2nl: 'zh_source', en2nl: 'en' }[direction] || 'en';
   const user = `Video: ${title || 'unknown'}\n\nTranslate these subtitle lines:\n` +
-    JSON.stringify(chunk.map(l => ({ id: l.id, [zh2en ? 'zh_source' : 'en']: l.text.replace(/\n/g, ' ') })));
-  const system = zh2en ? SYSTEM_ZH2EN : SYSTEM;
+    JSON.stringify(chunk.map(l => ({ id: l.id, [field]: l.text.replace(/\n/g, ' ') })));
+  const system = { zh2en: SYSTEM_ZH2EN, zh2nl: SYSTEM_TO_NL, en2nl: SYSTEM_TO_NL }[direction] || SYSTEM;
   const text = provider === 'anthropic'
     ? await callAnthropic(key, model, system, user)
     : await callOpenRouter(key, model, system, user);
   const parsed = parseJson(text);
+  // Some models rename the array or the field ("translations", "nl", "text"):
+  // take whatever string the item holds besides the source text we sent.
+  const items = Array.isArray(parsed) ? parsed
+    : parsed.lines || parsed.translations || parsed.items || Object.values(parsed).find(Array.isArray) || [];
   const out = {};
-  for (const l of parsed.lines || []) if (typeof l.zh === 'string') out[l.id] = l.zh.trim();
+  for (const l of items) {
+    if (!l || l.id == null) continue;
+    const value = [l.zh, l.nl, l.translation, l.text, l.dutch, l.en_target]
+      .find(v => typeof v === 'string' && v.trim());
+    if (value) out[l.id] = value.trim();
+  }
   return out;
 }
 

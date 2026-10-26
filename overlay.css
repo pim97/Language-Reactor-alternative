@@ -14,6 +14,7 @@
   --crpy-text: #f4f4f7;
   --crpy-muted: #9a9cab;
   --crpy-en: #ffe08a;
+  --crpy-nl: #a8e6cf;
 
   --crpy-t1: #ff7a7a;
   --crpy-t2: #ffb65c;
@@ -90,6 +91,15 @@
   padding-top: 6px;
   margin-top: 2px;
 }
+
+/* extra line in the learner's own language (Dutch): the feel of the line */
+.crpy-nl {
+  color: var(--crpy-nl);
+  font: 500 calc(var(--crpy-size) * 0.66)/1.3 var(--crpy-ui-font);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.crpy-zh + .crpy-nl { border-top: 1px solid var(--crpy-line); padding-top: 6px; margin-top: 2px; }
+.crpy-hist-nl { color: var(--crpy-nl); opacity: 0.95; margin-top: 2px; }
 
 /* tone colours: pinyin fully coloured, characters lightly tinted */
 .crpy-tones rt.crpy-t1, .crpy-tones .crpy-py.crpy-t1 { color: var(--crpy-t1); }
