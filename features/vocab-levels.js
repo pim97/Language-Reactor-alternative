@@ -39,9 +39,54 @@
     let cls = '';
     if (s === 'unknown' && view.vlMarkUnknown !== false) cls = 'crpy-vl-unknown';
     else if (s === 'learning' && view.vlMarkLearning !== false) cls = 'crpy-vl-learning';
-    const lv = hsk[word];
-    if (lv && view.vlHskBadges) cls += (cls ? ' ' : '') + 'crpy-hsk' + lv;
+    // HSK marker: the level 1–6, or crpy-hsk0 ("+") for words outside the HSK lists.
+    if (view.vlHskBadges && HAN.test(word)) cls += (cls ? ' ' : '') + 'crpy-hsk' + levelOf(word);
     return cls;
+  }
+
+  // HSK level of a word for the difficulty marker. The HSK lists hold 你, 好 and 一样
+  // but not every combination (你好, 吃饭, 不一样): a word made only of HSK words
+  // gets the highest level of its parts. 0 = beyond HSK.
+  const levelCache = new Map();
+  function levelOf(word) {
+    if (hsk[word]) return hsk[word];
+    if (levelCache.has(word)) return levelCache.get(word);
+    let best = 0;
+    const chars = [...word];
+    // Two HSK words (不 + 一样, 吃 + 饭) …
+    for (let k = 1; k < chars.length && !best; k++) {
+      const a = hsk[chars.slice(0, k).join('')], b = hsk[chars.slice(k).join('')];
+      if (a && b) best = Math.max(a, b);
+    }
+    // … or, for short words, every character known from some HSK word (饭 from 米饭).
+    if (!best && chars.length <= 3) {
+      const cl = charLevels();
+      if (chars.every(c => cl[c])) best = Math.max(...chars.map(c => cl[c]));
+    }
+    levelCache.set(word, best);
+    return best;
+  }
+
+  // Lowest HSK level of any word each character appears in. Built once per list.
+  let charLevelMap = null;
+  function charLevels() {
+    if (charLevelMap) return charLevelMap;
+    charLevelMap = {};
+    for (const [w, lv] of Object.entries(hsk)) {
+      for (const c of w) if (!charLevelMap[c] || lv < charLevelMap[c]) charLevelMap[c] = lv;
+    }
+    return charLevelMap;
+  }
+
+  // Highest HSK level in a Chinese line, and whether it has words beyond HSK.
+  function lineLevel(words) {
+    let max = 0, beyond = false;
+    for (const w of words) {
+      if (!HAN.test(w)) continue;
+      const lv = levelOf(w);
+      if (lv) max = Math.max(max, lv); else beyond = true;
+    }
+    return { max, beyond };
   }
 
   // ---------- saving ----------
@@ -154,6 +199,8 @@
       const out = {};
       for (const [w, lv] of Object.entries(data)) if (Number.isInteger(lv) && lv >= 1 && lv <= 6) out[w] = lv;
       hsk = out;
+      levelCache.clear();
+      charLevelMap = null;
       version++;
       api.refresh();
     } catch (e) { console.warn('[xiaopin] vocab-levels: HSK list not available', e); }
@@ -167,8 +214,24 @@
     settings: [
       { key: 'vlMarkUnknown', label: 'Mark unknown words', default: true },
       { key: 'vlMarkLearning', label: 'Mark learning words', default: true },
-      { key: 'vlHskBadges', label: 'Show HSK level on words', default: false },
+      { key: 'vlHskBadges', label: 'Show HSK level on words', default: true },
     ],
+
+    // A small "HSK 4+" badge at the end of each Chinese line on the video.
+    onLineRendered(linesEl, a) {
+      if (!a.view.vlHskBadges || !Object.keys(hsk).length) return;
+      for (const line of linesEl.querySelectorAll('.crpy-zh')) {
+        const { max, beyond } = lineLevel([...line.querySelectorAll('.crpy-w')].map(el => el.dataset.w));
+        if (!max && !beyond) continue;
+        const badge = document.createElement('span');
+        badge.className = 'crpy-vl-linelvl crpy-vl-lv' + (max || 7);
+        badge.textContent = max ? `HSK ${max}${beyond ? '+' : ''}` : 'HSK 6+';
+        badge.title = beyond
+          ? 'Highest HSK level in this line; + means it also has words outside HSK'
+          : 'Highest HSK level in this line';
+        line.appendChild(badge);
+      }
+    },
 
     init(a) {
       api = a;

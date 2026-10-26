@@ -26,7 +26,7 @@ Meet **Xiaopin**, the red panda (小熊猫) who reads along with you.
 - **Move things around**: drag the word popup by its header and it stays open where you put it (✕ or `Esc` closes it); drag the history panel to float it and resize it at the corner. Double-click a header to put it back.
 - **Known words**: mark words as new, learning, known or ignored (popup buttons or keys `1`–`4`). New words get a blue dotted underline, words you are learning an amber one.
 - **Comprehension %**: the toolbar shows how much of the episode's vocabulary you already know, so you can pick videos at your level. Beginners can count HSK 1–N as known.
-- **HSK levels**: every word's HSK 2.0 level in the popup, optionally as a small badge on the word.
+- **HSK levels**: a tiny colour-coded HSK number on every word (1–2 green, 3–4 amber, 5–6 red, + beyond HSK) and an "HSK 4" badge per line, so you see at a glance how hard a sentence is. Combinations like 你好 or 吃饭 get the level of their parts.
 - **Shadowing**: pause automatically after each line, loop a line 2×/3×/5×/∞ (`R` to loop the current line), and blur English or pinyin until you hover (`B` to peek).
 - **Pronunciation**: hear the word with your browser's Mandarin voice (normal or slow), see the pitch curve of every syllable, and get a note when a tone changes in speech (你好 is said ní hǎo). `听` under a line, or key `P`, reads the line slowly. Free, no AI calls.
 - **In plain words**: at the top of the word popup, a short AI explanation of the word as used in this sentence, with a memory tip built on its character parts. In English or Dutch (Nederlands), cached per word and sentence.
