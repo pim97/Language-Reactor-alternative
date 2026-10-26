@@ -196,13 +196,25 @@ async function translateEpisode({ mediaId, title, lines, force, direction = 'en2
   // (force) starts from scratch and overwrites it.
   // tren2: Chinese→English made with the context-aware prompt (old tren: ones are ignored).
   const cacheKey = direction === 'zh2en' ? `tren2:${mediaId}` : `tr:${mediaId}`;
-  const cached = force ? {} : direction === 'zh2en'
-    ? ((await chrome.storage.local.get(cacheKey))[cacheKey] || {})
+  const raw = force ? null : direction === 'zh2en'
+    ? (await chrome.storage.local.get(cacheKey))[cacheKey]
     : await loadCached(mediaId);
-  send({ type: 'progress', results: cached, done: Object.keys(cached).length, total: lines.length });
 
-  const results = { ...cached };
-  const pending = new Map(lines.filter(l => !(l.id in cached)).map(l => [l.id, l]));
+  // The cache remembers, per line, the source text it translated ({v: 2, lines:
+  // {id: {s, t}}}). A line is reused only while its text is unchanged, so another
+  // subtitle track for the same video never gets the wrong translation. Entries
+  // saved before this (plain {id: text}) are trusted as they are.
+  const entries = raw && raw.v === 2 ? { ...raw.lines }
+    : Object.fromEntries(Object.entries(raw || {}).map(([id, t]) => [id, { s: null, t }]));
+  const results = {};
+  for (const l of lines) {
+    const e = entries[l.id];
+    if (e && typeof e.t === 'string' && (e.s === null || e.s === l.text)) results[l.id] = e.t;
+  }
+  send({ type: 'progress', results, done: Object.keys(results).length, total: lines.length });
+
+  const pending = new Map(lines.filter(l => !(l.id in results)).map(l => [l.id, l]));
+  const toTranslate = pending.size;
   let first = true;
 
   // Next batch: untranslated lines from the viewer's position onward, wrapping to the start.
@@ -226,12 +238,14 @@ async function translateEpisode({ mediaId, title, lines, force, direction = 'en2
         out = await translateChunk(s.provider, key, model, title, chunk, direction);   // one retry
       }
       Object.assign(results, out);
-      await chrome.storage.local.set({ [cacheKey]: results });
+      for (const l of chunk) if (l.id in out) entries[l.id] = { s: l.text, t: out[l.id] };
+      await chrome.storage.local.set({ [cacheKey]: { v: 2, lines: entries } });
       send({ type: 'progress', results: out, done: Object.keys(results).length, total: lines.length });
     }
   }
   await Promise.all(Array.from({ length: PARALLEL }, worker));
-  send({ type: 'done', done: Object.keys(results).length, total: lines.length });
+  // translated: how many lines needed the AI this time (0 = all from the saved copy).
+  send({ type: 'done', done: Object.keys(results).length, total: lines.length, translated: toTranslate });
 }
 
 async function loadCached(mediaId) {
@@ -241,7 +255,7 @@ async function loadCached(mediaId) {
   // Older versions saved per provider/model as tr:<id>:<provider>:<model>.
   const all = await chrome.storage.local.get(null);
   const old = Object.keys(all).filter(k => k.startsWith(key + ':'));
-  if (!old.length) return {};
+  if (!old.length) return null;
   const merged = Object.assign({}, ...old.map(k => all[k]));
   await chrome.storage.local.set({ [key]: merged });
   await chrome.storage.local.remove(old);

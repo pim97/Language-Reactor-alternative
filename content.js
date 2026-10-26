@@ -215,9 +215,12 @@
       if (m.type === 'progress') {
         for (const [id, text] of Object.entries(m.results)) { const c = byId.get(+id); if (c) c.text = text; }
         refreshAll();
-        setStatus(`Translating ${label} with AI… ${m.done}/${m.total}`);
+        // Everything already saved: no "Translating…" flash, nothing is sent to the AI.
+        if (m.done < m.total) setStatus(`Translating ${label} with AI… ${m.done}/${m.total}`);
       } else if (m.type === 'done') {
-        setStatus(`${label}: AI translation (${m.done}/${m.total} lines)`);
+        setStatus(m.translated
+          ? `${label}: AI translation (${m.done}/${m.total} lines, ${m.translated} new)`
+          : `${label}: saved translation (${m.done}/${m.total} lines, no AI used)`);
         port.disconnect(); st.port = null;
       } else if (m.type === 'error') {
         setStatus('Translation: ' + m.error);
