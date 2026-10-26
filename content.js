@@ -28,6 +28,7 @@
     extraFrom: null,      // 'zh' | 'en': which track the extra line was translated from
     extraPort: null,
     extraKey: '',         // what the running/finished extra translation was started for
+    extraFails: 0,        // failed attempts for this video (stops after 2, so no endless paid retries)
   };
 
   // ---------- feature plugins ----------
@@ -84,7 +85,7 @@
     if (st.port) { st.port.disconnect(); st.port = null; }
     if (st.extraPort) { st.extraPort.disconnect(); st.extraPort = null; }
     Object.assign(st, { mediaId, en: [], zh: [], enSource: null, zhSource: null, offset: 0, burnedIn: '',
-      extra: [], extraFrom: null, extraKey: '' });
+      extra: [], extraFrom: null, extraKey: '', extraFails: 0 });
     st.title = videoTitle();
     if (root) root.classList.remove('crpy-burned');
     historyCount = -1;
@@ -260,7 +261,7 @@
   // Called on every refresh, so it must stay a cheap check.
   function ensureExtra() {
     const lang = view.extraLang;
-    if (!lang || !st.mediaId || st.extraPort) return;
+    if (!lang || !st.mediaId || st.extraPort || st.extraFails >= 2) return;
     const from = extraSource();
     if (!from) return;
     const src = (from === 'zh' ? st.zh : st.en).filter(c => c.text);
@@ -278,8 +279,18 @@
       if (m.type === 'progress') {
         for (const [id, text] of Object.entries(m.results)) { const c = byId.get(+id); if (c) c.text = text; }
         lastKey = ''; historyCount = -1;
-      } else if (m.type === 'done' || m.type === 'error') {
-        if (m.type === 'error') setStatus('Dutch line: ' + m.error);
+      } else if (m.type === 'done') {
+        // Say what happened, also when the model gave nothing usable back.
+        setStatus(m.done
+          ? `Dutch line: ${m.done}/${m.total} lines${m.translated ? '' : ' (saved, no AI used)'}`
+          : 'Dutch line: the AI model returned no usable lines. Try another model in the settings, or choose "Translate again".');
+        // Nothing usable: allow one new attempt on the next refresh instead of giving up.
+        if (!m.done) { st.extraFails++; st.extraKey = ''; }
+        port.disconnect(); st.extraPort = null;
+      } else if (m.type === 'error') {
+        setStatus('Dutch line: ' + m.error);
+        st.extraFails++;
+        st.extraKey = '';
         port.disconnect(); st.extraPort = null;
       }
     });

@@ -222,6 +222,7 @@ async function translateEpisode({ mediaId, title, lines, force, direction = 'en2
 
   const pending = new Map(lines.filter(l => !(l.id in results)).map(l => [l.id, l]));
   const toTranslate = pending.size;
+  const retried = new Set();   // lines the model skipped once already
   let first = true;
 
   // Next batch: untranslated lines from the viewer's position onward, wrapping to the start.
@@ -246,6 +247,11 @@ async function translateEpisode({ mediaId, title, lines, force, direction = 'en2
       }
       Object.assign(results, out);
       for (const l of chunk) if (l.id in out) entries[l.id] = { s: l.text, t: out[l.id] };
+      // Lines the model left out (or returned in a shape we could not read) get one
+      // more try in a later batch, instead of silently staying empty.
+      for (const l of chunk) {
+        if (!(l.id in out) && !retried.has(l.id)) { retried.add(l.id); pending.set(l.id, l); }
+      }
       await chrome.storage.local.set({ [cacheKey]: { v: 2, lines: entries } });
       send({ type: 'progress', results: out, done: Object.keys(results).length, total: lines.length });
     }
