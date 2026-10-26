@@ -341,5 +341,5 @@ function parseJson(text) {
   try { return JSON.parse(text); } catch (e) {}
   const m = /\{[\s\S]*\}/.exec(text);   // tolerate code fences or stray prose
   if (m) return JSON.parse(m[0]);
-  throw new Error('Could not read translation response');
+  throw new Error('Could not read the AI response (the model did not return valid JSON)');
 }

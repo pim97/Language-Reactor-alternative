@@ -1,0 +1,61 @@
+/* Pronunciation section at the top of the word popup */
+.crpy-root .crpy-feat-sec[data-f="pronounce"] { margin: 0 0 10px; }
+.crpy-root .crpy-pr-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.crpy-root .crpy-pr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--crpy-line);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--crpy-text);
+  font: 600 12.5px var(--crpy-ui-font);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.crpy-root .crpy-pr-btn:hover { background: var(--crpy-accent-soft); border-color: var(--crpy-accent); }
+.crpy-root .crpy-pr-btn[data-pr="play"] { background: var(--crpy-accent); border-color: var(--crpy-accent); color: #fff; }
+
+.crpy-root .crpy-pr-cells { display: flex; flex-wrap: wrap; gap: 6px; }
+.crpy-root .crpy-pr-cell {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 52px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--crpy-line);
+}
+.crpy-root .crpy-pr-svg { width: 40px; height: 32px; }
+.crpy-root .crpy-pr-grid { stroke: rgba(255, 255, 255, 0.08); stroke-width: 1; }
+.crpy-root .crpy-pr-line { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.crpy-root .crpy-pr-line.crpy-t1 { stroke: var(--crpy-t1); }
+.crpy-root .crpy-pr-line.crpy-t2 { stroke: var(--crpy-t2); }
+.crpy-root .crpy-pr-line.crpy-t3 { stroke: var(--crpy-t3); }
+.crpy-root .crpy-pr-line.crpy-t4 { stroke: var(--crpy-t4); }
+.crpy-root .crpy-pr-dot { fill: var(--crpy-t5); }
+.crpy-root .crpy-pr-han { font: 500 20px var(--crpy-zh-font); color: #fff; line-height: 1.1; }
+.crpy-root .crpy-pr-cell .crpy-py { font-size: 13px; font-weight: 700; }
+/* syllables always in tone colour here, whatever the subtitle setting */
+.crpy-root .crpy-pr .crpy-py.crpy-t1, .crpy-root .crpy-pr-num.crpy-t1 { color: var(--crpy-t1); }
+.crpy-root .crpy-pr .crpy-py.crpy-t2, .crpy-root .crpy-pr-num.crpy-t2 { color: var(--crpy-t2); }
+.crpy-root .crpy-pr .crpy-py.crpy-t3, .crpy-root .crpy-pr-num.crpy-t3 { color: var(--crpy-t3); }
+.crpy-root .crpy-pr .crpy-py.crpy-t4, .crpy-root .crpy-pr-num.crpy-t4 { color: var(--crpy-t4); }
+.crpy-root .crpy-pr .crpy-py.crpy-t5, .crpy-root .crpy-pr-num.crpy-t5 { color: var(--crpy-t5); }
+
+.crpy-root .crpy-pr-sandhi {
+  margin-top: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(114, 169, 255, 0.10);
+  color: #d6e4ff;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.crpy-root .crpy-pr-tones { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 3px; font-size: 12.5px; color: #c9cad3; }
+.crpy-root .crpy-pr-tones li { display: flex; gap: 8px; align-items: baseline; }
+.crpy-root .crpy-pr-num { font-weight: 800; min-width: 10px; text-align: center; }
+.crpy-root .crpy-pr-novoice { margin-top: 8px; color: #f0cf7e; font-size: 12px; line-height: 1.45; }

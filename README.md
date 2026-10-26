@@ -28,6 +28,7 @@ Meet **Xiaopin**, the red panda (小熊猫) who reads along with you.
 - **Comprehension %**: the toolbar shows how much of the episode's vocabulary you already know, so you can pick videos at your level. Beginners can count HSK 1–N as known.
 - **HSK levels**: every word's HSK 2.0 level in the popup, optionally as a small badge on the word.
 - **Shadowing**: pause automatically after each line, loop a line 2×/3×/5×/∞ (`R` to loop the current line), and blur English or pinyin until you hover (`B` to peek).
+- **Pronunciation**: hear the word with your browser's Mandarin voice (normal or slow), see the pitch curve of every syllable, and get a note when a tone changes in speech (你好 is said ní hǎo). `听` under a line, or key `P`, reads the line slowly. Free, no AI calls.
 - **In plain words**: at the top of the word popup, a short AI explanation of the word as used in this sentence, with a memory tip built on its character parts. In English or Dutch (Nederlands), cached per word and sentence.
 - **Explain this line (解)**: an AI breakdown of the sentence: translation, word-by-word gloss and grammar points. Key `E`. Cached, so each line costs once.
 - **Ask AI (问)**: ask your own questions about a line ("why 了 here?", "is this polite?") and get a short answer that knows the line, the lines around it and the explanation already shown. Follow-up questions work under every 解 explanation too.

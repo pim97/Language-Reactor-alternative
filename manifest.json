@@ -49,6 +49,7 @@
         "content.js",
         "lib/hanzi-writer.min.js",
         "features/simple.js",
+        "features/pronounce.js",
         "features/vocab-levels.js",
         "features/study-modes.js",
         "features/explain.js",
@@ -58,6 +59,7 @@
       "css": [
         "overlay.css",
         "features/simple.css",
+        "features/pronounce.css",
         "features/vocab-levels.css",
         "features/study-modes.css",
         "features/explain.css",
