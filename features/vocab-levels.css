@@ -1,0 +1,128 @@
+/* Vocabulary levels: word status marks, HSK badges, popup status buttons,
+   comprehension pill and menu bar. Marks use underlines/tints only, so the
+   tone colours of characters and pinyin stay readable. */
+
+.crpy-root {
+  --crpy-vl-unknown: color-mix(in srgb, var(--crpy-t4) 75%, transparent);
+  --crpy-vl-learning: #f4c542;
+  --crpy-vl-learning-soft: rgba(244, 197, 66, 0.13);
+  --crpy-vl-known: var(--crpy-t3);
+}
+
+/* unknown: dotted blue underline (a background image, so it never shifts layout) */
+.crpy-root .crpy-w.crpy-vl-unknown {
+  background-image: linear-gradient(to right, var(--crpy-vl-unknown) 55%, transparent 0);
+  background-size: 5px 2px;
+  background-repeat: repeat-x;
+  background-position: 0 100%;
+}
+/* learning: amber underline with a light tint (same amber as the saved star) */
+.crpy-root .crpy-w.crpy-vl-learning {
+  background-color: var(--crpy-vl-learning-soft);
+  box-shadow: inset 0 -2px 0 var(--crpy-vl-learning);
+}
+/* keep the normal hover look on top of the marks */
+.crpy-root .crpy-w.crpy-vl-unknown:hover, .crpy-root .crpy-w.crpy-vl-unknown.crpy-hover,
+.crpy-root .crpy-w.crpy-vl-learning:hover, .crpy-root .crpy-w.crpy-vl-learning.crpy-hover {
+  background: var(--crpy-accent-soft);
+  box-shadow: inset 0 -2px 0 var(--crpy-accent);
+}
+
+/* HSK level marker: absolutely placed at the lower right, so ruby layout is untouched */
+.crpy-root .crpy-w[class*="crpy-hsk"] { position: relative; }
+.crpy-root .crpy-w[class*="crpy-hsk"]::after {
+  position: absolute;
+  right: -2px;
+  bottom: -0.32em;
+  font: 700 max(8px, 0.3em)/1 var(--crpy-ui-font);
+  color: var(--crpy-muted);
+  opacity: 0.85;
+  pointer-events: none;
+  text-shadow: none;
+}
+.crpy-root .crpy-w.crpy-hsk1::after { content: "1"; }
+.crpy-root .crpy-w.crpy-hsk2::after { content: "2"; }
+.crpy-root .crpy-w.crpy-hsk3::after { content: "3"; }
+.crpy-root .crpy-w.crpy-hsk4::after { content: "4"; }
+.crpy-root .crpy-w.crpy-hsk5::after { content: "5"; }
+.crpy-root .crpy-w.crpy-hsk6::after { content: "6"; }
+
+/* ---------- popup ---------- */
+
+.crpy-root .crpy-vl-pop {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--crpy-line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.crpy-root .crpy-vl-hsk {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: var(--crpy-accent-soft);
+  color: var(--crpy-accent);
+}
+.crpy-root .crpy-vl-btns { display: flex; flex-wrap: wrap; gap: 4px; }
+.crpy-root .crpy-vl-set {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e3ea;
+  border: 1px solid var(--crpy-line);
+  border-radius: 999px;
+  padding: 2px 9px 2px 4px;
+  cursor: pointer;
+  font: 500 12px var(--crpy-ui-font);
+  transition: background 0.12s, border-color 0.12s;
+}
+.crpy-root .crpy-vl-set .crpy-kbd { min-width: 12px; font-size: 9.5px; }
+.crpy-root .crpy-vl-set:hover { border-color: var(--crpy-accent); }
+.crpy-root .crpy-vl-set:focus-visible { outline: 2px solid var(--crpy-accent); outline-offset: 1px; }
+.crpy-root .crpy-vl-set.crpy-on { color: #fff; }
+.crpy-root .crpy-vl-set-unknown.crpy-on { background: color-mix(in srgb, var(--crpy-t4) 22%, transparent); border-color: var(--crpy-t4); }
+.crpy-root .crpy-vl-set-learning.crpy-on { background: var(--crpy-vl-learning-soft); border-color: var(--crpy-vl-learning); }
+.crpy-root .crpy-vl-set-known.crpy-on { background: color-mix(in srgb, var(--crpy-vl-known) 20%, transparent); border-color: var(--crpy-vl-known); }
+.crpy-root .crpy-vl-set-ignored.crpy-on { background: rgba(255, 255, 255, 0.12); border-color: var(--crpy-muted); }
+
+/* ---------- toolbar pill ---------- */
+
+.crpy-root .crpy-vl-pill {
+  padding: 0 12px;
+  cursor: default;
+  color: var(--crpy-text);
+  font-variant-numeric: tabular-nums;
+}
+.crpy-root .crpy-vl-pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--crpy-vl-known);
+}
+
+/* ---------- menu ---------- */
+
+.crpy-root .crpy-vl-panel { margin: 8px 0 4px; }
+.crpy-root .crpy-vl-row { display: flex; justify-content: space-between; align-items: baseline; }
+.crpy-root .crpy-vl-row b { font-variant-numeric: tabular-nums; }
+.crpy-root .crpy-vl-bar {
+  display: flex;
+  height: 6px;
+  margin: 6px 0 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--crpy-t4) 35%, #2a2b35);
+}
+.crpy-root .crpy-vl-bar-known { background: var(--crpy-vl-known); }
+.crpy-root .crpy-vl-bar-learning { background: var(--crpy-vl-learning); }
+.crpy-root .crpy-vl-counts { color: var(--crpy-muted); font-size: 12px; }
+.crpy-root .crpy-vl-hskrow { gap: 4px; margin-top: 8px; }
+.crpy-root .crpy-vl-hskrow > span { margin-right: auto; }
+.crpy-root .crpy-panel .crpy-vl-hskrow button { padding: 3px 9px; }
+.crpy-root .crpy-panel .crpy-vl-hskrow button.crpy-on { background: var(--crpy-accent-soft); border-color: var(--crpy-accent); }

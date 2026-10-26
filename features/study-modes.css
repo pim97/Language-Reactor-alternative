@@ -1,0 +1,52 @@
+/* Study modes: blurred English / pinyin, loop badge, loop-count buttons. */
+
+/* Blur only the subtitle card; the history panel stays readable for review.
+   filter does not change hit-testing, so word lookup on hover keeps working. */
+.crpy-root.crpy-blur-en .crpy-lines .crpy-en {
+  filter: blur(6px);
+  transition: filter 0.25s ease;
+}
+.crpy-root.crpy-blur-py .crpy-lines .crpy-zh rt,
+.crpy-root.crpy-blur-py .crpy-lines .crpy-pyonly {
+  filter: blur(4px);
+  transition: filter 0.25s ease;
+}
+
+/* Reveal the hovered line, or everything for a moment after "B". */
+.crpy-root.crpy-blur-en .crpy-lines .crpy-en:hover,
+.crpy-root.crpy-blur-py .crpy-lines .crpy-zh:hover rt,
+.crpy-root.crpy-blur-py .crpy-lines .crpy-zh:hover .crpy-pyonly,
+.crpy-root.crpy-sm-reveal .crpy-lines .crpy-en,
+.crpy-root.crpy-sm-reveal .crpy-lines .crpy-zh rt,
+.crpy-root.crpy-sm-reveal .crpy-lines .crpy-pyonly {
+  filter: none;
+}
+
+/* Small corner badge on the card while a line loops. */
+.crpy-root .crpy-sm-badge {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--crpy-accent);
+  color: #fff;
+  font: 700 13px/1 var(--crpy-ui-font);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.crpy-root .crpy-sm-pill .crpy-btn-ic { font-family: var(--crpy-ui-font); }
+
+/* Off / 2× / 3× / 5× / ∞ */
+.crpy-root .crpy-sm-row { justify-content: space-between; }
+.crpy-root .crpy-sm-seg { display: inline-flex; gap: 4px; }
+.crpy-root .crpy-panel .crpy-sm-seg button { padding: 4px 10px; min-width: 38px; }
+.crpy-root .crpy-panel .crpy-sm-seg button.crpy-sm-on {
+  background: var(--crpy-accent-soft);
+  border-color: var(--crpy-accent);
+  color: #fff;
+}

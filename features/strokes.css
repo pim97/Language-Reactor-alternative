@@ -1,0 +1,52 @@
+/* Stroke order section in the word popup (features/strokes.js). */
+
+.crpy-root .crpy-sk {
+  margin-top: 10px;
+  border-top: 1px solid var(--crpy-line);
+  padding-top: 8px;
+}
+.crpy-root .crpy-sk-bar { display: flex; gap: 6px; align-items: center; }
+.crpy-root .crpy-sk-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--crpy-text);
+  border: 1px solid var(--crpy-line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  cursor: pointer;
+  font: 500 12.5px var(--crpy-ui-font);
+  transition: background 0.12s, border-color 0.12s;
+}
+.crpy-root .crpy-sk-btn:hover,
+.crpy-root .crpy-sk-btn.crpy-on,
+.crpy-root .crpy-sk-open [data-sk="toggle"] {
+  background: var(--crpy-accent-soft);
+  border-color: var(--crpy-accent);
+}
+/* the trace button only makes sense once the characters are shown */
+.crpy-root .crpy-sk:not(.crpy-sk-open) .crpy-sk-quizbtn { display: none; }
+
+.crpy-root .crpy-sk-grid { display: none; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.crpy-root .crpy-sk-open .crpy-sk-grid { display: flex; }
+.crpy-root .crpy-sk-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.crpy-root .crpy-sk-cell {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  border-radius: 10px;
+  border: 1px solid var(--crpy-line);
+  /* 田字格: the practice grid learners know from workbooks */
+  background:
+    linear-gradient(var(--crpy-line), var(--crpy-line)) center / 100% 1px no-repeat,
+    linear-gradient(var(--crpy-line), var(--crpy-line)) center / 1px 100% no-repeat,
+    rgba(255, 255, 255, 0.03);
+}
+.crpy-root .crpy-sk-cell svg { display: block; }
+.crpy-root .crpy-sk-quiz .crpy-sk-cell { cursor: crosshair; border-color: var(--crpy-accent); }
+.crpy-root .crpy-sk-cell.crpy-sk-done { border-color: #6fdc95; box-shadow: 0 0 0 1px #6fdc95 inset; }
+.crpy-root .crpy-sk-cell.crpy-sk-missing {
+  display: grid;
+  place-items: center;
+  font: 500 46px var(--crpy-zh-font);
+  color: var(--crpy-muted);
+}
+.crpy-root .crpy-sk-n { font-size: 11px; color: var(--crpy-muted); min-height: 14px; }

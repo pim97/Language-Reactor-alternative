@@ -34,7 +34,40 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     lookup(msg.word, msg.py).then(reply, () => reply({ entries: [], chars: [] }));
     return true;
   }
+  const handler = XiaopinBg.handlers[msg.type];
+  if (handler) {
+    Promise.resolve().then(() => handler(msg, sender))
+      .then(reply, e => reply({ error: String(e.message || e) }));
+    return true;
+  }
 });
+
+// ---------- feature plugins (background side) ----------
+// Files in features/*-bg.js add message handlers with XiaopinBg.handle(type, fn).
+// fn(msg, sender) may return a value or a Promise; it becomes the reply.
+self.XiaopinBg = {
+  handlers: {},
+  handle(type, fn) { this.handlers[type] = fn; },
+  settings,
+  lookup: (word, py) => lookup(word, py),
+  // Ask the user's chosen model. With a JSON schema the parsed object is returned,
+  // without one the plain text.
+  async callModel({ system, user, schema = null, maxTokens = 4000 }) {
+    const s = await settings();
+    const key = s.provider === 'anthropic' ? s.anthropicKey : s.openrouterKey;
+    const model = s.provider === 'anthropic' ? s.anthropicModel : s.openrouterModel;
+    if (!key) throw new Error('No API key set. Click the extension icon to add one.');
+    const text = s.provider === 'anthropic'
+      ? await callAnthropic(key, model, system, user, schema, maxTokens)
+      : await callOpenRouter(key, model, system, user, schema, maxTokens);
+    return schema ? parseJson(text) : text;
+  },
+};
+
+// Feature background scripts. A missing file is skipped.
+for (const f of ['features/explain-bg.js', 'features/anki-bg.js', 'features/strokes-bg.js']) {
+  try { importScripts(f); } catch (e) { /* feature not installed */ }
+}
 
 // CC-CEDICT (CC BY-SA 4.0, mdbg.net), as {word: [[pinyin, meanings], …]}.
 let dictPromise = null;
@@ -114,7 +147,11 @@ async function lookup(word, py = '') {
   const short = (c, want = '') => {
     const all = d[c] || [];
     const usable = all.filter(e => !/^(surname|old variant|variant of|used in)/i.test(e[1]));
-    const ce = usable.find(e => e[0] === want) || all.find(e => e[0] === want) || usable[0] || all[0];
+    // Several entries can share a reading (后 "empress" and 後 "after" are both hòu):
+    // take the one with the most senses, which is the everyday one.
+    const senses = e => e[1].split(';').filter(s => !/surname|variant of/i.test(s)).length;
+    const richest = list => list.reduce((best, e) => (!best || senses(e) > senses(best) ? e : best), null);
+    const ce = richest(usable.filter(e => e[0] === want)) || richest(all.filter(e => e[0] === want)) || usable[0] || all[0];
     const hz = h[c];
     return { py: ce?.[0] || hz?.[1] || '', def: ce?.[1] || hz?.[0] || '' };
   };
@@ -157,7 +194,8 @@ async function translateEpisode({ mediaId, title, lines, force, direction = 'en2
 
   // One saved translation per episode, kept whatever model made it. "Translate again"
   // (force) starts from scratch and overwrites it.
-  const cacheKey = direction === 'zh2en' ? `tren:${mediaId}` : `tr:${mediaId}`;
+  // tren2: Chinese→English made with the context-aware prompt (old tren: ones are ignored).
+  const cacheKey = direction === 'zh2en' ? `tren2:${mediaId}` : `tr:${mediaId}`;
   const cached = force ? {} : direction === 'zh2en'
     ? ((await chrome.storage.local.get(cacheKey))[cacheKey] || {})
     : await loadCached(mediaId);
@@ -211,12 +249,15 @@ async function loadCached(mediaId) {
 }
 
 const SYSTEM = `You translate English anime subtitles into natural spoken Mandarin Chinese (Simplified characters) for a learner who reads along while listening to the Mandarin audio.
+- The lines are consecutive dialogue from one video; use the surrounding lines and the title for context.
 - The show is usually a Chinese production; the English is itself a translation. Reconstruct what the characters most likely said in Mandarin: colloquial, natural dialogue, not stiff literal translation.
 - Write character names in Chinese characters, using their original Chinese names where you know them.
 - Keep each line short like a subtitle. Use Chinese punctuation. No pinyin, no explanations.
 - Return every id exactly once.`;
 
 const SYSTEM_ZH2EN = `You translate Mandarin Chinese video subtitles into natural English for a learner who reads the Chinese and pinyin alongside.
+- The lines are consecutive dialogue from one video. Read them as a whole and use the surrounding lines and the video title to understand what is meant.
+- Say it the way a native English speaker would in that same situation. Prefer everyday words over technical or dictionary terms (in a cooking vlog 可以用来水培 is "you can grow it in water", not "it can be used for hydroponics").
 - Stay close to the meaning of the Chinese so the learner can map words, but write natural English.
 - Keep each line short like a subtitle. No explanations, no pinyin.
 - Put the English in the "zh" field of each item (the field name is fixed).
@@ -253,7 +294,7 @@ async function translateChunk(provider, key, model, title, chunk, direction) {
   return out;
 }
 
-async function callAnthropic(key, model, system, user) {
+async function callAnthropic(key, model, system, user, schema = SCHEMA, maxTokens = 16000) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -264,9 +305,9 @@ async function callAnthropic(key, model, system, user) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 16000,
+      max_tokens: maxTokens,
       system,
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
+      output_config: { effort: 'low', ...(schema ? { format: { type: 'json_schema', schema } } : {}) },
       messages: [{ role: 'user', content: user }],
     }),
   });
@@ -276,7 +317,7 @@ async function callAnthropic(key, model, system, user) {
   return j.content.filter(b => b.type === 'text').map(b => b.text).join('');
 }
 
-async function callOpenRouter(key, model, system, user) {
+async function callOpenRouter(key, model, system, user, schema = SCHEMA, maxTokens = 16000) {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -286,9 +327,9 @@ async function callOpenRouter(key, model, system, user) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 16000,
+      max_tokens: maxTokens,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-      response_format: { type: 'json_schema', json_schema: { name: 'subtitles', strict: true, schema: SCHEMA } },
+      ...(schema ? { response_format: { type: 'json_schema', json_schema: { name: 'result', strict: true, schema } } } : {}),
     }),
   });
   const j = await res.json();

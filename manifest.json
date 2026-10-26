@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Xiaopin – Pinyin Subtitles",
   "short_name": "Xiaopin",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Learn Mandarin from video: pinyin, Chinese characters and English subtitles together, with word lookup, character breakdown and a word list.",
   "icons": {
     "16": "icons/icon16.png",
@@ -14,7 +14,11 @@
   "host_permissions": [
     "https://www.crunchyroll.com/*",
     "https://*.crunchyrollcdn.com/*",
-    "https://api.anthropic.com/*"
+    "https://api.anthropic.com/*",
+    "https://openrouter.ai/*",
+    "https://cdn.jsdelivr.net/*",
+    "http://127.0.0.1:8765/*",
+    "http://localhost:8765/*"
   ],
   "background": { "service_worker": "background.js" },
   "content_scripts": [
@@ -26,14 +30,31 @@
     },
     {
       "matches": ["https://www.crunchyroll.com/*", "https://www.youtube.com/*"],
-      "js": ["lib/pinyin-pro.js", "subtitles.js", "content.js"],
-      "css": ["overlay.css"],
+      "js": [
+        "lib/pinyin-pro.js",
+        "subtitles.js",
+        "content.js",
+        "lib/hanzi-writer.min.js",
+        "features/vocab-levels.js",
+        "features/study-modes.js",
+        "features/explain.js",
+        "features/strokes.js",
+        "features/anki.js"
+      ],
+      "css": [
+        "overlay.css",
+        "features/vocab-levels.css",
+        "features/study-modes.css",
+        "features/explain.css",
+        "features/strokes.css",
+        "features/anki.css"
+      ],
       "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/mascot.svg"],
+      "resources": ["assets/mascot.svg", "lib/hsk.json"],
       "matches": ["https://www.crunchyroll.com/*", "https://www.youtube.com/*"]
     }
   ],

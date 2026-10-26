@@ -103,6 +103,33 @@
 .crpy-tones ruby.crpy-t4 { color: color-mix(in srgb, var(--crpy-t4) 45%, #fff); }
 .crpy-tones ruby.crpy-t5 { color: color-mix(in srgb, var(--crpy-t5) 45%, #fff); }
 
+/* buttons that features add under a line (explain, loop, Anki…) */
+.crpy-line-actions {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.crpy-lines:hover .crpy-line-actions,
+.crpy-hist-item:hover .crpy-line-actions,
+.crpy-hist-item.crpy-current .crpy-line-actions { opacity: 1; }
+.crpy-hist-item .crpy-line-actions { justify-content: flex-start; margin-top: 6px; }
+.crpy-la {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--crpy-line);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--crpy-text);
+  font: 500 13px var(--crpy-zh-font);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.crpy-la:hover { background: var(--crpy-accent-soft); border-color: var(--crpy-accent); }
+
 /* hoverable words */
 .crpy-w {
   border-radius: 6px;
@@ -133,11 +160,38 @@
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
   z-index: 3;
   animation: crpy-pop 0.12s ease-out;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent;
 }
 .crpy-popup[hidden] { display: none; }
 @keyframes crpy-pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-.crpy-pop-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.crpy-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.crpy-pop-head:active { cursor: grabbing; }
+.crpy-pop-close {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--crpy-muted);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px;
+}
+.crpy-pop-close:hover { color: #fff; }
+/* A dragged ("docked") popup stays open: show its close button and a subtle outline. */
+.crpy-popup.crpy-docked { border-color: color-mix(in srgb, var(--crpy-accent) 45%, transparent); }
+.crpy-popup.crpy-docked .crpy-pop-close { display: block; }
 .crpy-pop-word { font: 500 30px/1.1 var(--crpy-zh-font); color: #fff; }
 .crpy-pop-py { font-size: 17px; font-weight: 600; flex: 1; color: var(--crpy-muted); }
 .crpy-pop-py .crpy-py + .crpy-py { margin-left: 4px; }
@@ -223,6 +277,26 @@
 }
 .crpy-history[hidden] { display: none; }
 .crpy-site-youtube .crpy-history { bottom: 60px; }
+/* Floating history: dragged by its header, resizable at the corner. */
+.crpy-hist-float .crpy-history {
+  right: auto;
+  bottom: auto;
+  min-width: 240px;
+  min-height: 160px;
+  max-width: 100%;
+  max-height: 100%;
+  border: 1px solid var(--crpy-line);
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  resize: both;
+  overflow: hidden;
+}
+.crpy-hist-head {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.crpy-hist-head:active { cursor: grabbing; }
 .crpy-hist-head {
   display: flex;
   align-items: center;
@@ -329,20 +403,48 @@
 }
 .crpy-btn.crpy-on { background: var(--crpy-accent-soft); }
 .crpy-logo { padding-left: 4px; font-weight: 700; letter-spacing: 0.01em; }
+
+/* Video | History | Both */
+.crpy-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.crpy-seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--crpy-muted);
+  font: 600 12.5px var(--crpy-ui-font);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.crpy-seg button:hover { color: #fff; }
+.crpy-seg button[aria-pressed="true"] { background: var(--crpy-accent); color: #fff; }
+.crpy-seg .crpy-btn-ic { width: 18px; height: 18px; font-size: 10.5px; background: rgba(255, 255, 255, 0.18); }
+
+/* "History" mode: subtitles only in the panel, the video stays clean */
+.crpy-hide-card .crpy-lines { display: none; }
 .crpy-mascot { width: 24px; height: 24px; display: block; }
 
 .crpy-panel-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0 8px;
+  gap: 14px;
+  padding: 12px 0 16px;
   border-bottom: 1px solid var(--crpy-line);
-  margin-bottom: 6px;
 }
 .crpy-mascot-lg { width: 46px; height: 46px; flex: none; filter: drop-shadow(0 4px 10px rgba(236, 106, 60, 0.35)); }
 .crpy-brand { font-size: 17px; font-weight: 800; color: #fff; letter-spacing: 0.01em; }
 .crpy-brand span { font: 500 14px var(--crpy-zh-font); color: var(--crpy-accent); margin-left: 4px; }
-.crpy-panel-head .crpy-src { font-size: 12px; font-weight: 500; color: var(--crpy-muted); margin-top: 2px; }
+.crpy-panel-head .crpy-src { font-size: 12.5px; font-weight: 500; color: var(--crpy-muted); margin-top: 4px; }
 
 .crpy-panel {
   pointer-events: auto;
@@ -350,41 +452,59 @@
   top: 60px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(380px, 90%);
+  width: min(400px, 90%);
   max-height: calc(100% - 140px);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
   background: var(--crpy-glass-strong);
   backdrop-filter: blur(16px);
   color: var(--crpy-text);
-  font: 13px/1.4 var(--crpy-ui-font);
+  font: 14px/1.4 var(--crpy-ui-font);
   border: 1px solid var(--crpy-line);
-  border-radius: 16px;
-  padding: 6px 16px 12px;
+  border-radius: 18px;
+  padding: 10px 22px 20px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
   z-index: 4;
   animation: crpy-pop 0.12s ease-out;
 }
 .crpy-panel[hidden] { display: none; }
 .crpy-sec {
-  margin: 12px 0 4px;
-  font-size: 10.5px;
+  margin: 22px 0 6px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--crpy-muted);
 }
-.crpy-row { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.crpy-row { margin: 12px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .crpy-src { font-weight: 600; }
-.crpy-status { color: var(--crpy-muted); font-size: 12px; }
+.crpy-status {
+  color: var(--crpy-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--crpy-line);
+  border-radius: 10px;
+}
+.crpy-status:empty { display: none; }
 .crpy-hint { color: var(--crpy-muted); font-size: 12px; }
 
-/* switch-style toggles */
+/* switch-style toggles: one row each, thin dividers between rows */
 .crpy-switch {
   display: flex !important;
   justify-content: space-between;
+  align-items: center;
+  gap: 16px;
   width: 100%;
+  min-height: 24px;
+  padding: 10px 0;
   cursor: pointer;
 }
+.crpy-switch + .crpy-switch { border-top: 1px solid var(--crpy-line); }
+.crpy-switch:hover span { color: #fff; }
 .crpy-switch input {
   appearance: none;
   position: relative;

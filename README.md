@@ -22,6 +22,15 @@ Meet **Xiaopin**, the red panda (小熊猫) who reads along with you.
 - **History panel**: every line so far with pinyin, characters and English; click a line to jump back.
 - **Word list**: save words with ☆ together with the sentence they came from. Export to Anki or CSV.
 - **Listening keys**: `A` previous line · `S` repeat line · `D` next line.
+- **Video, History or Both**: show subtitles on the video, only in the history panel (clean picture), or both. One click in the toolbar or key `H`.
+- **Move things around**: drag the word popup by its header and it stays open where you put it (✕ or `Esc` closes it); drag the history panel to float it and resize it at the corner. Double-click a header to put it back.
+- **Known words**: mark words as new, learning, known or ignored (popup buttons or keys `1`–`4`). New words get a blue dotted underline, words you are learning an amber one.
+- **Comprehension %**: the toolbar shows how much of the episode's vocabulary you already know, so you can pick videos at your level. Beginners can count HSK 1–N as known.
+- **HSK levels**: every word's HSK 2.0 level in the popup, optionally as a small badge on the word.
+- **Shadowing**: pause automatically after each line, loop a line 2×/3×/5×/∞ (`R` to loop the current line), and blur English or pinyin until you hover (`B` to peek).
+- **Explain this line (解)**: an AI breakdown of the sentence: translation, word-by-word gloss and grammar points. Key `E`. Cached, so each line costs once.
+- **Stroke order**: animated stroke order for every character in the word popup, plus a trace mode to practise writing.
+- **Send to Anki (卡)**: one click creates a word or sentence card through AnkiConnect, with tone-coloured pinyin, the sentence, and audio from Anki's own text-to-speech.
 - **Missing a language?** If a video only has Chinese or only English subtitles, the other side is translated with an AI model of your choice (OpenRouter or Anthropic API, your own key). Translations are made once per episode and cached locally, starting from where you are watching so subtitles don't lag.
 - **Your own subtitle file**: load a Chinese `.srt`/`.ass` file and shift its timing if needed.
 
@@ -87,6 +96,8 @@ Bump `version` in `manifest.json`, commit, then tag it: `git tag v1.2.1 && git p
 | `background.js` | Fetches subtitle files, AI translation, dictionary lookup and word splitting. |
 | `subtitles.js` | Parsers for `.ass`, `.srt` and YouTube `json3`. |
 | `options.html/js` | Settings and word list with Anki/CSV export. |
+| `features/` | Learning tools as plugins (known words, shadowing, explain, strokes, Anki); see `features/README.md`. |
+| `scripts/package.sh` | Reproducible build of the extension zip. |
 | `assets/`, `icons/` | Xiaopin mascot and extension icons (original artwork, MIT like the code). |
 | `docs/` | README banner, screenshot and the demo pages they are rendered from. |
 

@@ -7,6 +7,7 @@
   const VIEW_DEFAULTS = {
     showPinyin: true, showHanzi: true, showEnglish: true, fontSize: 30,
     hideNative: true, pauseOnHover: true, showHistory: false, toneColors: true,
+    hideCard: false,   // true = subtitles only in the history panel, not on the video
   };
   let view = { ...VIEW_DEFAULTS };
 
@@ -21,6 +22,18 @@
     burnedIn: '',         // subtitle locale burned into the video stream, if any
     status: 'Waiting for video…',
     port: null,
+  };
+
+  // ---------- feature plugins ----------
+  // Files in features/ load after this script and call Xiaopin.register({...}).
+  // The hooks are documented in features/README.md.
+  const features = [];
+  const featureSettings = [];   // [{ key, label, section, default }]
+  const callFeatures = (hook, ...args) => {
+    for (const f of features) {
+      if (typeof f[hook] !== 'function') continue;
+      try { f[hook](...args); } catch (e) { console.warn(`[xiaopin] ${f.id}.${hook}`, e); }
+    }
   };
 
   let vocab = {};
@@ -171,6 +184,15 @@
     if (!p || !video || video.readyState < 1) return;
     ytAskedFor = id;
     window.postMessage({ source: 'crpy-content', type: 'yt-enable-captions' }, location.origin);
+    // No caption data after a few seconds: ask again with a fresh captions module.
+    for (const wait of [4000, 10000]) {
+      setTimeout(() => {
+        const has = st.mediaId === 'yt:' + id && (st.zhSource === 'youtube' || st.enSource === 'youtube');
+        if (!has && ytVideoId() === id) {
+          window.postMessage({ source: 'crpy-content', type: 'yt-enable-captions', reload: true }, location.origin);
+        }
+      }, wait);
+    }
   }
 
   // ---------- AI translation ----------
@@ -344,13 +366,37 @@
       } else {
         inner = segChars.map((c, i) => `<ruby class="crpy-t${toneOf(pys[i] || '')}">${esc(c)}</ruby>`).join('');
       }
-      const saved = vocab[segment] ? ' crpy-saved' : '';
-      html += `<span class="crpy-w${saved}" data-w="${esc(segment)}" data-py="${esc(pys.join(' '))}">${inner}</span>`;
+      let cls = vocab[segment] ? ' crpy-saved' : '';
+      for (const f of features) {
+        if (!f.wordClass) continue;
+        try { const c = f.wordClass(segment); if (c) cls += ' ' + c; } catch (e) {}
+      }
+      html += `<span class="crpy-w${cls}" data-w="${esc(segment)}" data-py="${esc(pys.join(' '))}">${inner}</span>`;
     }
     return html;
   }
 
-  function refreshAll() { lastKey = ''; historyCount = -1; lastCurrent = -1; renderPanel(); }
+  function refreshAll() {
+    lastKey = ''; historyCount = -1; lastCurrent = -1;
+    callFeatures('onChange', api);
+    renderPanel();
+  }
+
+  // Buttons features add to each line (overlay and history), e.g. "explain".
+  function lineActionsHtml(i) {
+    const acts = features.flatMap(f => (f.lineActions || []).map(a => ({ ...a, f: f.id })));
+    if (!acts.length) return '';
+    return `<div class="crpy-line-actions">${acts.map(a =>
+      `<button class="crpy-la" data-la="${esc(a.id)}" data-f="${esc(a.f)}" data-i="${i}" title="${esc(a.title || a.label)}">${esc(a.label)}</button>`
+    ).join('')}</div>`;
+  }
+
+  // Index into pairedLines() of the line being spoken at time t (-1 before the first).
+  function lineIndexAt(lines, t) {
+    let cur = -1;
+    for (let i = 0; i < lines.length; i++) { if (lines[i].start <= t + 0.05) cur = i; else break; }
+    return cur;
+  }
 
   function render() {
     if (!video || !root) return;
@@ -364,9 +410,12 @@
       let html = '';
       if (showZh) for (const c of zh) html += `<div class="crpy-zh">${zhHtml(c.text)}</div>`;
       for (const c of en) html += `<div class="crpy-en">${esc(c.text).replace(/\n/g, '<br>')}</div>`;
+      if (html && zh.length) html += lineActionsHtml(lineIndexAt(pairedLines(), t));
       linesEl.innerHTML = html;
+      callFeatures('onLineRendered', linesEl, api);
     }
     if (view.showHistory) renderHistory(t);
+    callFeatures('tick', t, api);
   }
 
   function renderHistory(t) {
@@ -383,6 +432,7 @@
           <div class="crpy-hist-time">${fmtTime(l.start)}</div>
           ${l.zh ? `<div class="crpy-hist-zh">${zhHtml(l.zh, { showPinyin: true, showHanzi: true })}</div>` : ''}
           ${l.en ? `<div class="crpy-hist-en">${esc(l.en)}</div>` : ''}
+          ${l.zh ? lineActionsHtml(i) : ''}
         </div>`).join('') || '<div class="crpy-hist-empty">Lines appear here as they are spoken.</div>';
       if (atBottom || lastCurrent === -1) list.scrollTop = list.scrollHeight;
     }
@@ -394,17 +444,37 @@
     }
   }
 
+  // Where subtitles show: on the video, only in the history panel, or both.
+  const LAYOUTS = ['video', 'history', 'both'];
+  function layoutMode() {
+    if (!view.showHistory) return 'video';
+    return view.hideCard ? 'history' : 'both';
+  }
+  function setLayout(mode) {
+    chrome.storage.sync.set({ showHistory: mode !== 'video', hideCard: mode === 'history' });
+  }
+
   const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
   function applyView() {
     if (root) {
       root.style.setProperty('--crpy-size', view.fontSize + 'px');
-      root.classList.toggle('crpy-with-history', !!view.showHistory);
+      // A dragged history panel floats where the user put it; otherwise it docks right.
+      const hp = uiPos.history;
+      root.classList.toggle('crpy-hist-float', !!hp);
+      Object.assign(historyEl.style, hp
+        ? { left: hp.left + 'px', top: hp.top + 'px', width: (hp.width || 360) + 'px', height: (hp.height || 320) + 'px' }
+        : { left: '', top: '', width: '', height: '' });
+      const card = !view.showHistory || !view.hideCard;
+      root.classList.toggle('crpy-with-history', !!view.showHistory && !hp && card);
+      root.classList.toggle('crpy-hide-card', !card);
       root.classList.toggle('crpy-tones', !!view.toneColors);
-      root.querySelector('[data-a="history"]').classList.toggle('crpy-on', !!view.showHistory);
+      const mode = layoutMode();
+      root.querySelectorAll('[data-a="layout"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === mode)));
       historyEl.hidden = !view.showHistory;
     }
     document.documentElement.classList.toggle('crpy-hide-native', !!view.hideNative);
+    callFeatures('onView', api);
     refreshAll();
   }
 
@@ -416,16 +486,80 @@
     panelEl.querySelector('.crpy-src').textContent =
       `中文: ${names[st.zhSource] || '—'} · English: ${names[st.enSource] || '—'}`;
     panelEl.querySelector('.crpy-offset').textContent = (st.offset > 0 ? '+' : '') + st.offset.toFixed(1) + 's';
-    for (const k of ['showPinyin', 'showHanzi', 'showEnglish', 'hideNative', 'pauseOnHover', 'showHistory', 'toneColors']) {
+    for (const k of Object.keys(VIEW_DEFAULTS)) {
       const el = panelEl.querySelector(`[data-k="${k}"]`);
       if (el) el.checked = !!view[k];
     }
     panelEl.querySelector('.crpy-clearfile').hidden = st.zhSource !== 'file';
+    const fp = panelEl.querySelector('.crpy-feat-panel');
+    if (fp) fp.innerHTML = features.map(f => {
+      try { return f.panel ? `<div data-f="${esc(f.id)}">${f.panel(api) || ''}</div>` : ''; } catch (e) { return ''; }
+    }).join('');
+    const tb = root && root.querySelector('.crpy-feat-toolbar');
+    if (tb) tb.innerHTML = features.map(f => {
+      try { return f.toolbar ? f.toolbar(api) || '' : ''; } catch (e) { return ''; }
+    }).join('');
   }
 
   // ---------- word lookup popup ----------
 
   let popupWord = null, popupPinned = false, hoverPaused = false, hideTimer = null;
+
+  // Where the user dragged the popup and the history panel to (null = automatic).
+  // A dragged popup is "docked": it stays open until ✕ / Escape.
+  let uiPos = { popup: null, history: null };
+  let popupDocked = false;
+  chrome.storage.local.get('uiPos').then(v => { if (v.uiPos) { uiPos = { ...uiPos, ...v.uiPos }; applyView(); } });
+  const saveUiPos = () => chrome.storage.local.set({ uiPos });
+
+  const popupHead = (word, py, withStar) => `<div class="crpy-pop-head" title="Drag to move · double-click to reset">
+      <span class="crpy-pop-word">${esc(word)}</span>
+      <span class="crpy-pop-py">${pySpans(py)}</span>
+      ${withStar ? `<button class="crpy-star" title="Save to word list">${vocab[word] ? '★' : '☆'}</button>` : ''}
+      <button class="crpy-pop-close" title="Close (Esc)">✕</button></div>`;
+
+  function closePopup() {
+    popupDocked = false;
+    popupEl.classList.remove('crpy-docked');
+    clearTimeout(hideTimer);
+    popupEl.hidden = true;
+    popupWord = null;
+    popupPinned = false;
+    lastKey = '';
+    if (hoverPaused && video && !api.holdPause) video.play().catch(() => {});
+    hoverPaused = false;
+  }
+
+  // Drag `el` by pointer from a handle; positions are relative to the overlay root.
+  // While dragging, the pointer leaves the popup all the time: `dragging` stops that
+  // from closing it.
+  let dragging = false;
+  function startDrag(e, el, onMove, onEnd) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragging = true;
+    clearTimeout(hideTimer);
+    const rr = root.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    const dx = e.clientX - er.left, dy = e.clientY - er.top;
+    const handle = e.target;
+    handle.setPointerCapture?.(e.pointerId);
+    const move = ev => {
+      const left = Math.max(0, Math.min(ev.clientX - rr.left - dx, rr.width - er.width));
+      const top = Math.max(0, Math.min(ev.clientY - rr.top - dy, rr.height - 40));
+      onMove(left, top);
+    };
+    const up = () => {
+      dragging = false;
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      handle.removeEventListener('pointercancel', up);
+      onEnd();
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+  }
 
   async function showPopup(wordEl) {
     clearTimeout(hideTimer);
@@ -435,18 +569,40 @@
     popupStack = [];
     if (view.pauseOnHover && video && !video.paused) { video.pause(); hoverPaused = true; }
 
-    popupEl.innerHTML = `<div class="crpy-pop-head"><span class="crpy-pop-word">${esc(word)}</span>
-      <span class="crpy-pop-py">${pySpans(popupWord.py)}</span>
-      <button class="crpy-star" title="Save to word list">${vocab[word] ? '★' : '☆'}</button></div>
-      <div class="crpy-pop-body">…</div>`;
+    popupEl.innerHTML = `${popupHead(word, popupWord.py, true)}<div class="crpy-pop-body">…</div>`;
     popupEl.hidden = false;
     placePopup(wordEl);
 
     const res = await chrome.runtime.sendMessage({ type: 'lookup', word, py: popupWord.py });
     if (!popupWord || popupWord.word !== word) return;
     popupWord.entries = res.entries;
+    popupWord.chars = res.chars;
     popupEl.querySelector('.crpy-pop-body').innerHTML = popupBody(res);
+    addFeatureSections(popupEl.querySelector('.crpy-pop-body'), word);
     placePopup(wordEl);
+  }
+
+  // Extra popup sections from features (sync html or a Promise of html).
+  function addFeatureSections(body, word) {
+    const info = popupWord;
+    for (const f of features) {
+      if (!f.popup) continue;
+      let out;
+      try { out = f.popup(word, info, api); } catch (e) { continue; }
+      if (!out) continue;
+      const sec = document.createElement('div');
+      sec.className = 'crpy-feat-sec';
+      sec.dataset.f = f.id;
+      body.appendChild(sec);
+      const fill = html => {
+        if (!html || popupWord !== info) { if (!html) sec.remove(); return; }
+        sec.innerHTML = html;
+        callFeatures('onPopupRendered', sec, word, api);
+        if (popupWord) placePopup(popupWord.el);
+      };
+      if (typeof out.then === 'function') { sec.innerHTML = '<span class="crpy-muted">…</span>'; out.then(fill, () => sec.remove()); }
+      else fill(out);
+    }
   }
 
   const shortDef = s => String(s || '').split(/[;,]/)[0].trim();
@@ -486,9 +642,8 @@
     popupStack.push(popupEl.innerHTML);
     const res = await chrome.runtime.sendMessage({ type: 'lookup', word: char });
     const py = res.chars[0]?.py || '';
-    popupEl.innerHTML = `<div class="crpy-pop-head"><span class="crpy-pop-word">${esc(char)}</span>
-      <span class="crpy-pop-py">${pySpans(py)}</span></div>
-      <div class="crpy-pop-body">${popupBody(res)}</div>`;
+    popupEl.innerHTML = `${popupHead(char, py, false)}<div class="crpy-pop-body">${popupBody(res)}</div>`;
+    addFeatureSections(popupEl.querySelector('.crpy-pop-body'), char);
     placePopup(popupWord.el);
   }
 
@@ -515,26 +670,55 @@
     return c.textContent.trim();
   }
 
+  // Above the word when it fits, else on the side with more room. The popup never
+  // leaves the player: when it is taller than the room it scrolls inside itself.
   function placePopup(wordEl) {
+    const M = 8, GAP = 10;
     const rr = root.getBoundingClientRect();
+    if (uiPos.popup) {
+      // The user put it somewhere: keep it there, inside the player.
+      const top = Math.max(M, Math.min(uiPos.popup.top, rr.height - 120));
+      popupEl.style.maxHeight = (rr.height - top - M) + 'px';
+      const pr = popupEl.getBoundingClientRect();
+      popupEl.style.left = Math.max(M, Math.min(uiPos.popup.left, rr.width - pr.width - M)) + 'px';
+      popupEl.style.top = top + 'px';
+      return;
+    }
     const wr = wordEl.getBoundingClientRect();
+    const above = wr.top - rr.top - GAP - M;
+    const below = rr.bottom - wr.bottom - GAP - M;
+    popupEl.style.maxHeight = '';
+    const natural = popupEl.scrollHeight;
+    const useAbove = natural <= above || above >= below;
+    const room = Math.max(120, useAbove ? above : below);
+    popupEl.style.maxHeight = Math.min(natural, room, rr.height - 2 * M) + 'px';
     const pr = popupEl.getBoundingClientRect();
     let left = wr.left - rr.left + wr.width / 2 - pr.width / 2;
-    left = Math.max(8, Math.min(left, rr.width - pr.width - 8));
-    let top = wr.top - rr.top - pr.height - 10;
-    if (top < 8) top = wr.bottom - rr.top + 10;
+    left = Math.max(M, Math.min(left, rr.width - pr.width - M));
+    let top = useAbove ? wr.top - rr.top - GAP - pr.height : wr.bottom - rr.top + GAP;
+    top = Math.max(M, Math.min(top, rr.height - pr.height - M));
     popupEl.style.left = left + 'px';
     popupEl.style.top = top + 'px';
   }
 
   function scheduleHide() {
     clearTimeout(hideTimer);
+    if (dragging) return;
+    if (popupDocked) {
+      // A docked popup stays open, but the subtitles and the video carry on.
+      popupPinned = false;
+      lastKey = '';
+      if (hoverPaused && video && !api.holdPause) video.play().catch(() => {});
+      hoverPaused = false;
+      return;
+    }
     hideTimer = setTimeout(() => {
       popupEl.hidden = true;
       popupWord = null;
       popupPinned = false;
       lastKey = '';
-      if (hoverPaused && video) { video.play().catch(() => {}); }
+      // A feature (e.g. the explain card) may be holding the pause.
+      if (hoverPaused && video && !api.holdPause) { video.play().catch(() => {}); }
       hoverPaused = false;
     }, 250);
   }
@@ -580,6 +764,20 @@
     if (!video || e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (e.key === 'Escape' && popupWord && !popupEl.hidden) { closePopup(); return; }
+    const k = e.key.toLowerCase();
+    if (k === 'h') {
+      e.preventDefault(); e.stopPropagation();
+      setLayout(LAYOUTS[(LAYOUTS.indexOf(layoutMode()) + 1) % LAYOUTS.length]);
+      return;
+    }
+    for (const f of features) {
+      if (f.keys && typeof f.keys[k] === 'function') {
+        e.preventDefault(); e.stopPropagation();
+        try { f.keys[k](api); } catch (err) { console.warn(err); }
+        return;
+      }
+    }
     const map = { a: 'prev', s: 'repeat', d: 'next' };
     const which = map[e.key.toLowerCase()];
     if (!which) return;
@@ -606,7 +804,12 @@
       </div>
       <div class="crpy-buttons">
         <button class="crpy-btn crpy-logo" data-a="menu" title="Xiaopin menu"><img class="crpy-mascot" src="${mascot}" alt="">Xiaopin</button>
-        <button class="crpy-btn" data-a="history" title="All lines so far"><span class="crpy-btn-ic">史</span>History</button>
+        <div class="crpy-seg" role="group" aria-label="Where subtitles show (H)" title="Where subtitles show (H)">
+          <button data-a="layout" data-v="video">Video</button>
+          <button data-a="layout" data-v="history"><span class="crpy-btn-ic">史</span>History</button>
+          <button data-a="layout" data-v="both">Both</button>
+        </div>
+        <span class="crpy-feat-toolbar"></span>
       </div>
       <div class="crpy-panel" hidden>
         <div class="crpy-panel-head"><img class="crpy-mascot-lg" src="${mascot}" alt="">
@@ -622,6 +825,8 @@
         ${sw('pauseOnHover', 'Pause while reading a word')}
         ${sw('showHistory', 'History panel')}
         ${sw('hideNative', 'Hide the site\'s own subtitles')}
+        ${featureSettings.length ? `<div class="crpy-sec">Learning tools</div>${featureSettings.map(s => sw(s.key, esc(s.label))).join('')}` : ''}
+        <div class="crpy-feat-panel"></div>
         <div class="crpy-sec">Chinese text</div>
         <div class="crpy-row">
           <button data-a="file">Load .srt / .ass…</button>
@@ -657,12 +862,80 @@
       if (popupWord && !(to && (to.closest?.('.crpy-popup') || to === popupWord.el || popupWord.el.contains(to)))) scheduleHide();
     });
 
+    // Drag the popup by its header (it then stays open) and the history panel by its header.
+    root.addEventListener('pointerdown', e => {
+      if (e.target.closest('button')) return;
+      if (e.target.closest('.crpy-pop-head')) {
+        // Dock right away, so the popup stays open during and after the drag.
+        popupDocked = true;
+        popupEl.classList.add('crpy-docked');
+        startDrag(e, popupEl, (left, top) => {
+          popupEl.style.left = left + 'px';
+          popupEl.style.top = top + 'px';
+        }, () => {
+          uiPos.popup = { left: parseFloat(popupEl.style.left), top: parseFloat(popupEl.style.top) };
+          popupDocked = true;
+          popupEl.classList.add('crpy-docked');
+          saveUiPos();
+        });
+      } else if (e.target.closest('.crpy-hist-head')) {
+        const r = historyEl.getBoundingClientRect();
+        if (!uiPos.history) {
+          // Leave the dock at the same spot, with a floating size.
+          uiPos.history = { left: r.left - root.getBoundingClientRect().left, top: 0, width: 360, height: Math.min(r.height, 360) };
+          applyView();
+        }
+        startDrag(e, historyEl, (left, top) => {
+          historyEl.style.left = left + 'px';
+          historyEl.style.top = top + 'px';
+        }, () => {
+          const hr = historyEl.getBoundingClientRect();
+          uiPos.history = { left: parseFloat(historyEl.style.left), top: parseFloat(historyEl.style.top), width: hr.width, height: hr.height };
+          saveUiPos();
+        });
+      }
+    });
+    // The floating history panel can be resized at its corner: remember the size.
+    historyEl.addEventListener('pointerup', () => {
+      if (!uiPos.history) return;
+      const hr = historyEl.getBoundingClientRect();
+      if (Math.abs(hr.width - uiPos.history.width) > 2 || Math.abs(hr.height - uiPos.history.height) > 2) {
+        uiPos.history = { ...uiPos.history, width: hr.width, height: hr.height };
+        saveUiPos();
+      }
+    });
+    // Double-click a header: back to automatic placement / docked on the right.
+    root.addEventListener('dblclick', e => {
+      if (e.target.closest('.crpy-pop-head')) {
+        uiPos.popup = null;
+        popupDocked = false;
+        popupEl.classList.remove('crpy-docked');
+        saveUiPos();
+        if (popupWord) placePopup(popupWord.el);
+      } else if (e.target.closest('.crpy-hist-head')) {
+        uiPos.history = null;
+        saveUiPos();
+        applyView();
+      }
+    });
+
     root.addEventListener('change', e => {
       const k = e.target.dataset.k;
       if (k) chrome.storage.sync.set({ [k]: e.target.checked });
     });
     fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); fileInput.value = ''; });
     root.addEventListener('click', e => {
+      const la = e.target.closest('[data-la]');
+      if (la) {
+        const f = features.find(x => x.id === la.dataset.f);
+        const line = pairedLines()[+la.dataset.i];
+        if (f && f.onLineAction && line) f.onLineAction(la.dataset.la, { ...line, index: +la.dataset.i }, api, la);
+        return;
+      }
+      for (const f of features) {
+        try { if (f.onClick && f.onClick(e, api)) return; } catch (err) { console.warn(err); }
+      }
+      if (e.target.closest('.crpy-pop-close')) return closePopup();
       if (e.target.closest('.crpy-star')) return toggleSave();
       if (e.target.closest('.crpy-back')) return drillBack();
       const drill = e.target.closest('.crpy-part, .crpy-char-c');
@@ -671,7 +944,8 @@
       if (item && !e.target.closest('.crpy-w')) { video.currentTime = +item.dataset.t + 0.02; return; }
       const a = e.target.dataset.a;
       if (a === 'menu') { panelEl.hidden = !panelEl.hidden; renderPanel(); }
-      if (a === 'history' || a === 'closehist') chrome.storage.sync.set({ showHistory: !view.showHistory });
+      if (a === 'layout') { const b = e.target.closest('[data-a="layout"]'); setLayout(b.dataset.v); }
+      if (a === 'closehist') setLayout('video');
       if (a === 'file') fileInput.click();
       if (a === 'clearfile') clearFile();
       if (a === 'minus') setOffset(-0.5);
@@ -690,6 +964,58 @@
     root.classList.add('crpy-site-' + SITE);
     applyView();
   }
+
+  // ---------- plugin API (see features/README.md) ----------
+
+  const api = {
+    SITE,
+    get st() { return st; },
+    get video() { return video; },
+    get view() { return view; },
+    get root() { return root; },
+    get popup() { return popupWord; },
+    get vocab() { return vocab; },
+    setView: (key, value) => chrome.storage.sync.set({ [key]: value }),
+    pairedLines,
+    lineIndexAt,
+    refresh: refreshAll,
+    rerenderLines: () => { lastKey = ''; },
+    setStatus,
+    esc,
+    pySpans,
+    toneOf,
+    zhHtml,
+    segmentsOf,
+    // True once the dictionary split of this line has arrived (segmentsOf until then
+    // returns a rougher fallback split; onChange fires again when it lands).
+    isSegmented: text => segCache.has(text),
+    videoTitle,
+    lookup: (word, py) => chrome.runtime.sendMessage({ type: 'lookup', word, py }),
+    send: msg => chrome.runtime.sendMessage(msg),
+    seek: t => { if (video) video.currentTime = t; },
+    // Set by a feature that paused the video itself, so the core doesn't resume it.
+    holdPause: false,
+    placePopup: () => { if (popupWord) placePopup(popupWord.el); },
+  };
+
+  window.Xiaopin = {
+    api,
+    register(f) {
+      if (!f || !f.id || features.some(x => x.id === f.id)) return;
+      features.push(f);
+      for (const s of f.settings || []) {
+        if (s.key in VIEW_DEFAULTS) continue;
+        VIEW_DEFAULTS[s.key] = s.default;
+        view[s.key] = s.default;
+        featureSettings.push(s);
+        chrome.storage.sync.get(s.key).then(v => { if (s.key in v) { view[s.key] = v[s.key]; applyView(); } });
+      }
+      try { f.init && f.init(api); } catch (e) { console.warn(`[xiaopin] ${f.id}.init`, e); }
+      // A feature that arrives after the UI was built: rebuild it so its settings show.
+      if (root) { root.remove(); root = null; }
+      refreshAll();
+    },
+  };
 
   function findVideo() {
     if (SITE === 'youtube') {
