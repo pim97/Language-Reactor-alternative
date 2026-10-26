@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Xiaopin promo tile</title>
+<!-- Chrome Web Store small promo tile (440×280), rendered with headless Chrome. -->
+<style>
+  html, body { margin: 0; }
+  .t {
+    width: 440px;
+    height: 280px;
+    box-sizing: border-box;
+    padding: 30px 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    position: relative;
+    font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+    color: #f4f4f7;
+    background:
+      radial-gradient(circle at 10% 15%, rgba(255, 106, 85, 0.45), transparent 45%),
+      radial-gradient(circle at 95% 100%, rgba(114, 169, 255, 0.25), transparent 45%),
+      linear-gradient(135deg, #221d2c, #13121a);
+  }
+  .top { display: flex; align-items: center; gap: 16px; }
+  img { width: 92px; height: 92px; filter: drop-shadow(0 8px 20px rgba(236, 106, 60, 0.45)); }
+  h1 { margin: 0; font-size: 40px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+  h1 span { display: block; font: 500 24px "Microsoft YaHei", "Noto Sans SC", sans-serif; color: #ff6a55; margin-top: 4px; }
+  .card { background: rgba(16, 17, 24, 0.75); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px 14px; }
+  .py { font-size: 13px; font-weight: 600; }
+  .zh { font: 500 26px "Microsoft YaHei", "Noto Sans SC", sans-serif; letter-spacing: 0.06em; }
+  .en { color: #ffe08a; font-size: 14px; font-weight: 500; }
+  .t1 { color: #ff7a7a; } .t2 { color: #ffb65c; } .t3 { color: #6fdc95; } .t4 { color: #72a9ff; } .t5 { color: #b9bccb; }
+</style>
+</head>
+<body>
+<div class="t">
+  <div class="top">
+    <img src="../assets/mascot.svg" alt="">
+    <h1>Xiaopin<span>小拼 · pinyin subtitles</span></h1>
+  </div>
+  <div class="card">
+    <div class="py"><span class="t3">nǐ</span> <span class="t3">hǎo</span>, <span class="t3">wǒ</span> <span class="t5">men</span> <span class="t1">kāi</span> <span class="t3">shǐ</span> <span class="t2">xué</span> <span class="t1">zhōng</span> <span class="t2">wén</span></div>
+    <div class="zh"><span class="t3">你</span><span class="t3">好</span>，<span class="t3">我</span><span class="t5">们</span><span class="t1">开</span><span class="t3">始</span><span class="t2">学</span><span class="t1">中</span><span class="t2">文</span></div>
+    <div class="en">Hi, let's start learning Chinese</div>
+  </div>
+</div>
+</body>
+</html>

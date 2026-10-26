@@ -12,7 +12,8 @@
   .stage {
     position: relative;
     width: 1280px;
-    height: 720px;
+    height: 100vh;
+    min-height: 720px;
     overflow: hidden;
     background:
       radial-gradient(circle at 22% 30%, rgba(255, 190, 120, 0.55), transparent 32%),
@@ -64,7 +65,12 @@
 
     <div class="crpy-buttons">
       <button class="crpy-btn crpy-logo"><img class="crpy-mascot" src="../assets/mascot.svg" alt="">Xiaopin</button>
-      <button class="crpy-btn crpy-on"><span class="crpy-btn-ic">史</span>History</button>
+      <div class="crpy-seg">
+        <button>Video</button>
+        <button><span class="crpy-btn-ic">史</span>History</button>
+        <button aria-pressed="true">Both</button>
+      </div>
+      <span class="crpy-feat-toolbar"><span class="crpy-vl-pill" style="padding:0 10px;font:600 12.5px var(--crpy-ui-font);color:#c9cad3">● 38% known</span></span>
     </div>
   </div>
 </div>
