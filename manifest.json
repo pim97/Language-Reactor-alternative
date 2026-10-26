@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Xiaopin – Pinyin Subtitles",
+  "short_name": "Xiaopin",
+  "version": "1.2.0",
+  "description": "Learn Mandarin from video: pinyin, Chinese characters and English subtitles together, with word lookup, character breakdown and a word list.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["storage", "unlimitedStorage"],
+  "host_permissions": [
+    "https://www.crunchyroll.com/*",
+    "https://*.crunchyrollcdn.com/*",
+    "https://api.anthropic.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.crunchyroll.com/*", "https://www.youtube.com/*"],
+      "js": ["inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.crunchyroll.com/*", "https://www.youtube.com/*"],
+      "js": ["lib/pinyin-pro.js", "subtitles.js", "content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/mascot.svg"],
+      "matches": ["https://www.crunchyroll.com/*", "https://www.youtube.com/*"]
+    }
+  ],
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Xiaopin – word list & settings",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  }
+}

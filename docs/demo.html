@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pinyin Subtitles – demo</title>
+<!-- Static demo of the overlay for the README screenshot. Uses the extension's real
+     stylesheet and pinyin library; the "video" is an abstract background and all
+     sentences are made-up examples. -->
+<link rel="stylesheet" href="../overlay.css">
+<style>
+  html, body { margin: 0; background: #0b0b0f; }
+  .stage {
+    position: relative;
+    width: 1280px;
+    height: 720px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 22% 30%, rgba(255, 190, 120, 0.55), transparent 32%),
+      radial-gradient(circle at 70% 20%, rgba(120, 170, 255, 0.35), transparent 30%),
+      radial-gradient(circle at 45% 80%, rgba(255, 120, 160, 0.25), transparent 35%),
+      linear-gradient(160deg, #2b3a55 0%, #1d2436 45%, #3a2a3f 100%);
+  }
+  .stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 2px, transparent 2px 80px);
+  }
+  .crpy-root { z-index: 2; }
+  .crpy-buttons { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="crpy-root crpy-with-history crpy-tones" style="--crpy-size: 34px">
+    <div class="crpy-lines">
+      <div class="crpy-zh" id="line"></div>
+      <div class="crpy-en">That photo studio we went to the day before yesterday was really interesting.</div>
+    </div>
+
+    <div class="crpy-popup" id="popup">
+      <div class="crpy-pop-head"><span class="crpy-pop-word">照相馆</span>
+        <span class="crpy-pop-py"><span class="crpy-py crpy-t4">zhào</span> <span class="crpy-py crpy-t4">xiàng</span> <span class="crpy-py crpy-t3">guǎn</span></span><button class="crpy-star">★</button></div>
+      <div class="crpy-pop-body">
+        <div class="crpy-pop-entry"><b>zhào xiàng guǎn</b> photo studio</div>
+        <div class="crpy-pop-build">
+          <div class="crpy-char"><span class="crpy-char-c">照</span><span class="crpy-char-py">zhào</span><span class="crpy-char-d">to shine</span>
+            <div class="crpy-parts">= <span class="crpy-part"><span class="crpy-part-c">昭</span><span class="crpy-role crpy-role-sound">sound</span><span class="crpy-part-d">zhāo</span></span><span class="crpy-plus">+</span><span class="crpy-part"><span class="crpy-part-c">灬</span><span class="crpy-role crpy-role-meaning">meaning</span><span class="crpy-part-d">fire</span></span></div></div>
+          <div class="crpy-char"><span class="crpy-char-c">相</span><span class="crpy-char-py">xiàng</span><span class="crpy-char-d">appearance; picture</span>
+            <div class="crpy-parts">= <span class="crpy-part"><span class="crpy-part-c">木</span><span class="crpy-part-d">tree</span></span><span class="crpy-plus">+</span><span class="crpy-part"><span class="crpy-part-c">目</span><span class="crpy-part-d">eye</span></span></div>
+            <div class="crpy-hint-line">To stare 目 at a tree 木, meaning to observe</div></div>
+          <div class="crpy-char"><span class="crpy-char-c">馆</span><span class="crpy-char-py">guǎn</span><span class="crpy-char-d">building; shop</span>
+            <div class="crpy-parts">= <span class="crpy-part"><span class="crpy-part-c">饣</span><span class="crpy-part-d">food</span></span><span class="crpy-plus">+</span><span class="crpy-part"><span class="crpy-part-c">官</span><span class="crpy-part-d">official</span></span></div>
+            <div class="crpy-hint-line">A public 官 building where food 饣 is served</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="crpy-history">
+      <div class="crpy-hist-head">History
+        <span class="crpy-hist-keys"><span class="crpy-kbd">A</span> back · <span class="crpy-kbd">S</span> repeat · <span class="crpy-kbd">D</span> next</span><button>✕</button></div>
+      <div class="crpy-hist-list" id="hist"></div>
+    </div>
+
+    <div class="crpy-buttons">
+      <button class="crpy-btn crpy-logo"><img class="crpy-mascot" src="../assets/mascot.svg" alt="">Xiaopin</button>
+      <button class="crpy-btn crpy-on"><span class="crpy-btn-ic">史</span>History</button>
+    </div>
+  </div>
+</div>
+
+<script src="../lib/pinyin-pro.js"></script>
+<script>
+  const HAN = /\p{Script=Han}/u;
+  const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const MARKS = ['', 'āēīōūǖ', 'áéíóúǘ', 'ǎěǐǒǔǚ', 'àèìòùǜ'];
+  const toneOf = p => { for (let t = 1; t <= 4; t++) if ([...p].some(c => MARKS[t].includes(c))) return t; return 5; };
+
+  // Same markup as content.js zhHtml(); segments as produced by the extension's splitter.
+  function zhHtml(segs, hover) {
+    const text = segs.join('');
+    const py = pinyinPro.pinyin(text, { type: 'array' });
+    let html = '', ci = 0;
+    for (const seg of segs) {
+      const chars = [...seg], pys = py.slice(ci, ci + chars.length);
+      ci += chars.length;
+      if (!HAN.test(seg)) { html += esc(seg); continue; }
+      const inner = chars.map((c, i) => {
+        const t = 'crpy-t' + toneOf(pys[i]);
+        return `<ruby class="${t}">${esc(c)}<rt class="${t}">${esc(pys[i])}</rt></ruby>`;
+      }).join('');
+      const cls = 'crpy-w' + (seg === hover ? ' crpy-hover' : '') + (seg === '照相馆' ? ' crpy-saved' : '');
+      html += `<span class="${cls}">${inner}</span>`;
+    }
+    return html;
+  }
+
+  document.getElementById('line').innerHTML =
+    zhHtml(['我们', '前天', '去', '的', '那', '家', '照相馆', '很', '有意思', '。'], '照相馆');
+
+  const history = [
+    ['0:41', ['你好', '，', '我们', '是', '第一次', '来', '这里', '。'], 'Hi, this is our first time here.'],
+    ['0:45', ['这', '家', '照相馆', '是', '前天', '开', '的', '吗', '？'], 'Did this photo studio open the day before yesterday?'],
+    ['0:49', ['对', '，', '我们', '周末', '也', '开门', '。'], "Yes, and we're open on weekends too."],
+    ['0:53', ['我们', '前天', '去', '的', '那', '家', '照相馆', '很', '有意思', '。'], 'That photo studio we went to the day before yesterday was really interesting.'],
+  ];
+  document.getElementById('hist').innerHTML = history.map(([t, segs, en], i) => `
+    <div class="crpy-hist-item${i === history.length - 1 ? ' crpy-current' : ''}">
+      <div class="crpy-hist-time">${t}</div>
+      <div class="crpy-hist-zh">${zhHtml(segs)}</div>
+      <div class="crpy-hist-en">${esc(en)}</div>
+    </div>`).join('');
+
+  // Put the popup above the hovered word, like the extension does.
+  const word = document.querySelector('.crpy-hover');
+  const popup = document.getElementById('popup');
+  const root = document.querySelector('.crpy-root').getBoundingClientRect();
+  const w = word.getBoundingClientRect(), p = popup.getBoundingClientRect();
+  popup.style.left = (w.left - root.left + w.width / 2 - p.width / 2) + 'px';
+  popup.style.top = (w.top - root.top - p.height - 10) + 'px';
+</script>
+</body>
+</html>

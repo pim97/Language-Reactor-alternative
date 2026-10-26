@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Xiaopin banner</title>
+<!-- README banner, rendered to docs/banner.png with headless Chrome (1280×400). -->
+<style>
+  html, body { margin: 0; }
+  .b {
+    width: 1280px;
+    height: 400px;
+    display: flex;
+    align-items: center;
+    gap: 56px;
+    padding: 0 90px;
+    box-sizing: border-box;
+    overflow: hidden;
+    position: relative;
+    font-family: "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+    color: #f4f4f7;
+    background:
+      radial-gradient(circle at 12% 20%, rgba(255, 106, 85, 0.35), transparent 38%),
+      radial-gradient(circle at 92% 90%, rgba(114, 169, 255, 0.22), transparent 40%),
+      linear-gradient(135deg, #1f1b29, #13121a);
+  }
+  .b::after {
+    content: "拼音 汉字 学习 听力 词汇";
+    position: absolute;
+    right: -20px;
+    top: 18px;
+    font: 500 120px "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    color: rgba(255, 255, 255, 0.035);
+    white-space: nowrap;
+  }
+  img { width: 230px; height: 230px; filter: drop-shadow(0 18px 40px rgba(236, 106, 60, 0.45)); flex: none; }
+  h1 { margin: 0; font-size: 76px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+  h1 span { font: 500 58px "Noto Sans SC", "Microsoft YaHei", sans-serif; color: #ff6a55; margin-left: 14px; }
+  p { margin: 18px 0 22px; font-size: 25px; color: #c7c8d3; max-width: 760px; }
+  .lines { display: inline-flex; flex-direction: column; gap: 2px; padding: 10px 20px; border-radius: 14px;
+           background: rgba(16, 17, 24, 0.72); border: 1px solid rgba(255,255,255,0.1); }
+  .py { font-size: 18px; font-weight: 600; letter-spacing: 0.02em; }
+  .zh { font: 500 34px "Noto Sans SC", "Microsoft YaHei", sans-serif; letter-spacing: 0.08em; }
+  .en { color: #ffe08a; font-size: 19px; font-weight: 500; }
+  .t1 { color: #ff7a7a; } .t2 { color: #ffb65c; } .t3 { color: #6fdc95; } .t4 { color: #72a9ff; } .t5 { color: #b9bccb; }
+</style>
+</head>
+<body>
+<div class="b">
+  <img src="../assets/mascot.svg" alt="">
+  <div>
+    <h1>Xiaopin<span>小拼</span></h1>
+    <p>Learn Mandarin from the shows you watch: pinyin, characters and English subtitles together.</p>
+    <div class="lines">
+      <div class="py"><span class="t3">nǐ</span> <span class="t3">hǎo</span>, <span class="t3">wǒ</span> <span class="t5">men</span> <span class="t1">kāi</span> <span class="t3">shǐ</span> <span class="t2">xué</span> <span class="t1">zhōng</span> <span class="t2">wén</span></div>
+      <div class="zh"><span class="t3">你</span><span class="t3">好</span>，<span class="t3">我</span><span class="t5">们</span><span class="t1">开</span><span class="t3">始</span><span class="t2">学</span><span class="t1">中</span><span class="t2">文</span></div>
+      <div class="en">Hi, let's start learning Chinese</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

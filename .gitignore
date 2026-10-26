@@ -1,0 +1,11 @@
+# local / build leftovers
+node_modules/
+*.zip
+*.crx
+*.pem
+.DS_Store
+Thumbs.db
+
+# never commit keys or local config
+.env
+*.local.*
