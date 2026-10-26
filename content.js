@@ -8,6 +8,7 @@
     showPinyin: true, showHanzi: true, showEnglish: true, fontSize: 30,
     hideNative: true, pauseOnHover: true, showHistory: false, toneColors: true,
     hideCard: false,   // true = subtitles only in the history panel, not on the video
+    explainLang: 'en', // language of AI explanations: 'en' | 'nl'
   };
   let view = { ...VIEW_DEFAULTS };
 
@@ -471,6 +472,7 @@
       root.classList.toggle('crpy-tones', !!view.toneColors);
       const mode = layoutMode();
       root.querySelectorAll('[data-a="layout"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === mode)));
+      root.querySelectorAll('[data-a="lang"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === view.explainLang)));
       historyEl.hidden = !view.showHistory;
     }
     document.documentElement.classList.toggle('crpy-hide-native', !!view.hideNative);
@@ -573,8 +575,16 @@
     popupEl.hidden = false;
     placePopup(wordEl);
 
-    const res = await chrome.runtime.sendMessage({ type: 'lookup', word, py: popupWord.py });
-    if (!popupWord || popupWord.word !== word) return;
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ type: 'lookup', word, py: popupWord.py });
+    } catch (e) {
+      // The extension was reloaded or updated while this tab stayed open.
+      popupEl.querySelector('.crpy-pop-body').innerHTML =
+        '<div class="crpy-pop-entry">Xiaopin was updated. Refresh this page to look up words again.</div>';
+      return;
+    }
+    if (!popupWord || popupWord.word !== word || !res) return;
     popupWord.entries = res.entries;
     popupWord.chars = res.chars;
     popupEl.querySelector('.crpy-pop-body').innerHTML = popupBody(res);
@@ -593,7 +603,7 @@
       const sec = document.createElement('div');
       sec.className = 'crpy-feat-sec';
       sec.dataset.f = f.id;
-      body.appendChild(sec);
+      if (f.popupFirst) body.prepend(sec); else body.appendChild(sec);
       const fill = html => {
         if (!html || popupWord !== info) { if (!html) sec.remove(); return; }
         sec.innerHTML = html;
@@ -607,10 +617,23 @@
 
   const shortDef = s => String(s || '').split(/[;,]/)[0].trim();
 
+  // CC-CEDICT entries are written for dictionary users: drop the numbered-pinyin
+  // cross references and traditional|simplified pairs, and keep the first few senses.
+  function tidyDef(def) {
+    const senses = String(def || '')
+      .replace(/\s*\[[a-zü:]+\d(?:\s+[a-zü:]+\d)*\]/gi, '')
+      .replace(/[\p{Script=Han}·]+\|([\p{Script=Han}·]+)/gu, '$1')
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s && !/^also pr\.|^also written|^variant of|^old variant/i.test(s))
+      .map(s => (s.length > 70 ? s.slice(0, 68).replace(/\s+\S*$/, '') + '…' : s));
+    return senses.slice(0, 4).join('; ') + (senses.length > 4 ? '; …' : '');
+  }
+
   // Meanings of the word, then how each character is built from simpler parts.
   function popupBody({ entries, chars }) {
     let html = entries.length
-      ? entries.slice(0, 3).map(e => `<div class="crpy-pop-entry"><b>${esc(e[0])}</b> ${esc(e[1])}</div>`).join('')
+      ? entries.slice(0, 3).map(e => `<div class="crpy-pop-entry"><b>${esc(e[0])}</b> ${esc(tidyDef(e[1]))}</div>`).join('')
       : '';
     const built = chars.filter(c => c.parts.length || chars.length > 1);
     if (built.length) {
@@ -821,6 +844,11 @@
         ${sw('showEnglish', 'English')}
         ${sw('toneColors', 'Tone colours')}
         <div class="crpy-row">Text size <button data-a="smaller">A−</button><button data-a="bigger">A+</button></div>
+        <div class="crpy-row crpy-lang-row">Explanations in
+          <span class="crpy-seg" role="group" aria-label="Language of explanations">
+            <button data-a="lang" data-v="en">English</button>
+            <button data-a="lang" data-v="nl">Nederlands</button>
+          </span></div>
         <div class="crpy-sec">Study</div>
         ${sw('pauseOnHover', 'Pause while reading a word')}
         ${sw('showHistory', 'History panel')}
@@ -863,8 +891,21 @@
     });
 
     // Drag the popup by its header (it then stays open) and the history panel by its header.
+    // Two quick presses on a header reset it. (Detected here: preventing the default on
+    // pointerdown, which dragging needs, also stops the browser's own dblclick.)
+    let lastPress = { el: null, at: 0 };
     root.addEventListener('pointerdown', e => {
       if (e.target.closest('button')) return;
+      const head = e.target.closest('.crpy-pop-head, .crpy-hist-head');
+      if (!head) return;
+      const now = Date.now();
+      const isDouble = lastPress.el === head && now - lastPress.at < 400;
+      lastPress = { el: head, at: now };
+      if (isDouble) {
+        e.preventDefault();
+        resetPosition(head.classList.contains('crpy-pop-head') ? 'popup' : 'history');
+        return;
+      }
       if (e.target.closest('.crpy-pop-head')) {
         // Dock right away, so the popup stays open during and after the drag.
         popupDocked = true;
@@ -904,20 +945,20 @@
         saveUiPos();
       }
     });
-    // Double-click a header: back to automatic placement / docked on the right.
-    root.addEventListener('dblclick', e => {
-      if (e.target.closest('.crpy-pop-head')) {
+    // Back to automatic placement (popup) or docked on the right (history).
+    function resetPosition(which) {
+      if (which === 'popup') {
         uiPos.popup = null;
         popupDocked = false;
         popupEl.classList.remove('crpy-docked');
         saveUiPos();
         if (popupWord) placePopup(popupWord.el);
-      } else if (e.target.closest('.crpy-hist-head')) {
+      } else {
         uiPos.history = null;
         saveUiPos();
         applyView();
       }
-    });
+    }
 
     root.addEventListener('change', e => {
       const k = e.target.dataset.k;
@@ -945,6 +986,7 @@
       const a = e.target.dataset.a;
       if (a === 'menu') { panelEl.hidden = !panelEl.hidden; renderPanel(); }
       if (a === 'layout') { const b = e.target.closest('[data-a="layout"]'); setLayout(b.dataset.v); }
+      if (a === 'lang') chrome.storage.sync.set({ explainLang: e.target.closest('[data-a="lang"]').dataset.v });
       if (a === 'closehist') setLayout('video');
       if (a === 'file') fileInput.click();
       if (a === 'clearfile') clearFile();

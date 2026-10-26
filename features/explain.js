@@ -79,6 +79,7 @@
         prev: lines[i - 1]?.zh || '',
         next: lines[i + 1]?.zh || '',
         title: api.st.title || '',
+        lang: api.view.explainLang || 'en',
         force,
       });
     } catch (e) {

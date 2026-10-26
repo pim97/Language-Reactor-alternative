@@ -28,6 +28,7 @@ Meet **Xiaopin**, the red panda (小熊猫) who reads along with you.
 - **Comprehension %**: the toolbar shows how much of the episode's vocabulary you already know, so you can pick videos at your level. Beginners can count HSK 1–N as known.
 - **HSK levels**: every word's HSK 2.0 level in the popup, optionally as a small badge on the word.
 - **Shadowing**: pause automatically after each line, loop a line 2×/3×/5×/∞ (`R` to loop the current line), and blur English or pinyin until you hover (`B` to peek).
+- **In plain words**: at the top of the word popup, a short AI explanation of the word as used in this sentence, with a memory tip built on its character parts. In English or Dutch (Nederlands), cached per word and sentence.
 - **Explain this line (解)**: an AI breakdown of the sentence: translation, word-by-word gloss and grammar points. Key `E`. Cached, so each line costs once.
 - **Stroke order**: animated stroke order for every character in the word popup, plus a trace mode to practise writing.
 - **Send to Anki (卡)**: one click creates a word or sentence card through AnkiConnect, with tone-coloured pinyin, the sentence, and audio from Anki's own text-to-speech.

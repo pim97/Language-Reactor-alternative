@@ -10,6 +10,7 @@ const DEFAULTS = {
   hideNative: true,
   pauseOnHover: true,
   toneColors: true,
+  explainLang: 'en',
   fontSize: 30,
 };
 

@@ -65,7 +65,7 @@ self.XiaopinBg = {
 };
 
 // Feature background scripts. A missing file is skipped.
-for (const f of ['features/explain-bg.js', 'features/anki-bg.js', 'features/strokes-bg.js']) {
+for (const f of ['features/explain-bg.js', 'features/anki-bg.js', 'features/strokes-bg.js', 'features/simple-bg.js']) {
   try { importScripts(f); } catch (e) { /* feature not installed */ }
 }
 

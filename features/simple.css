@@ -1,0 +1,21 @@
+/* "In plain words" at the top of the word popup */
+.crpy-root .crpy-feat-sec[data-f="simple"] { margin: 0 0 10px; }
+.crpy-root .crpy-simple {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--crpy-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--crpy-accent) 35%, transparent);
+}
+.crpy-root .crpy-simple-head {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--crpy-accent);
+  margin-bottom: 4px;
+}
+.crpy-root .crpy-simple-meaning { font-size: 16px; font-weight: 700; color: #fff; }
+.crpy-root .crpy-simple-text { margin-top: 4px; color: #e2e3ea; line-height: 1.5; }
+.crpy-root .crpy-simple-memory { margin-top: 6px; color: #f0cf7e; font-size: 13px; line-height: 1.45; }
+.crpy-root .crpy-simple-memory b { color: #f0cf7e; }
+.crpy-root .crpy-simple-muted { background: rgba(255, 255, 255, 0.04); border-color: var(--crpy-line); color: var(--crpy-muted); font-size: 12.5px; }

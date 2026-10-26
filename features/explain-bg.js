@@ -77,10 +77,16 @@
     };
   }
 
+  // Explanations in the learner's own language. The Chinese parts stay as they are.
+  const LANG_RULE = {
+    nl: `\n- LANGUAGE: write "translation", every "meaning", every "explanation" and "note" in Dutch (Nederlands), in simple everyday Dutch a learner understands easily (about B1 level). Avoid jargon; when you must name a grammar term, explain it in plain words. The "pattern" labels may stay short, e.g. "V + 得 + bijv. naamwoord — mate-aanvulling".`,
+  };
+
   XiaopinBg.handle('explain.line', async msg => {
     const zh = oneLine(msg.zh);
     if (!zh) return { error: 'No Chinese line to explain' };
-    const key = PREFIX + hash(zh);
+    const lang = LANG_RULE[msg.lang] ? msg.lang : 'en';
+    const key = PREFIX + (lang === 'en' ? '' : lang + ':') + hash(zh);
 
     if (!msg.force) {
       const hit = (await chrome.storage.local.get(key))[key];
@@ -102,7 +108,7 @@
 
     let out;
     try {
-      out = await XiaopinBg.callModel({ system: SYSTEM, user, schema: SCHEMA, maxTokens: 2000 });
+      out = await XiaopinBg.callModel({ system: SYSTEM + (LANG_RULE[lang] || ''), user, schema: SCHEMA, maxTokens: 2000 });
     } catch (e) {
       return { error: String(e.message || e) };
     }
