@@ -159,3 +159,69 @@
   background: var(--crpy-accent-soft);
   color: #ffd2cb;
 }
+
+/* ---------- Ask AI (问): questions about the line ---------- */
+.crpy-root .crpy-ex-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 6px 0 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent;
+}
+.crpy-root .crpy-ex-msg {
+  padding: 8px 11px;
+  border-radius: 12px;
+  line-height: 1.5;
+  font-size: 13.5px;
+  max-width: 92%;
+}
+.crpy-root .crpy-ex-msg-user {
+  align-self: flex-end;
+  background: var(--crpy-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--crpy-accent) 35%, transparent);
+}
+.crpy-root .crpy-ex-msg-assistant {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--crpy-line);
+}
+.crpy-root .crpy-ex-msg-err { color: #ffd2cb; }
+.crpy-root .crpy-ex-who {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--crpy-muted);
+  margin-bottom: 2px;
+}
+.crpy-root .crpy-ex-text { color: #ecedf2; font-family: var(--crpy-ui-font), var(--crpy-zh-font); }
+.crpy-root .crpy-ex-text .crpy-ex-spin { display: inline-block; vertical-align: -2px; margin-right: 8px; }
+.crpy-root .crpy-ex-ask { display: flex; gap: 8px; align-items: flex-end; }
+.crpy-root .crpy-ex-input {
+  flex: 1;
+  min-height: 36px;
+  max-height: 110px;
+  resize: vertical;
+  padding: 8px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--crpy-line);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--crpy-text);
+  font: 13.5px/1.4 var(--crpy-ui-font), var(--crpy-zh-font);
+}
+.crpy-root .crpy-ex-input:focus { outline: none; border-color: var(--crpy-accent); }
+.crpy-root .crpy-ex-ask button {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: none;
+  background: var(--crpy-accent);
+  color: #fff;
+  font: 600 13px var(--crpy-ui-font);
+  cursor: pointer;
+}
+.crpy-root .crpy-ex-ask button:hover { filter: brightness(1.08); }

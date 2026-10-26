@@ -118,6 +118,47 @@
     return { ok: true, data };
   });
 
+  // ---------- Ask AI: free questions about one line ----------
+
+  const ASK_LANG = { en: 'English', nl: 'Dutch (Nederlands)' };
+
+  const askSystem = lang => `You are a friendly Mandarin tutor. The learner is watching a video and asks about one subtitle line.
+- Answer the question about THIS line, using the surrounding lines for context. Be accurate; if something is ambiguous or you are unsure, say so instead of guessing.
+- Keep it short: usually 2–6 sentences, plain text, no markdown headings. Use a short list only when it really helps.
+- Quote Chinese in Simplified characters followed by pinyin with tone marks, e.g. 了 (le).
+- Answer in the language the learner writes in; if unclear, use ${ASK_LANG[lang] || 'English'}. Use simple everyday words.`;
+
+  XiaopinBg.handle('explain.ask', async msg => {
+    const zh = oneLine(msg.zh);
+    const question = str(msg.question);
+    if (!zh || !question) return { error: 'Nothing to ask' };
+    const s = await XiaopinBg.settings();
+    if (!(s.provider === 'anthropic' ? s.anthropicKey : s.openrouterKey)) {
+      return { error: 'Add an API key in settings', code: 'nokey' };
+    }
+    const ex = msg.explanation && typeof msg.explanation === 'object' ? msg.explanation : null;
+    const history = (Array.isArray(msg.history) ? msg.history : [])
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && str(m.text))
+      .slice(-8)
+      .map(m => `${m.role === 'user' ? 'Learner' : 'Tutor'}: ${str(m.text)}`);
+    const user = [
+      `Video: ${oneLine(msg.title) || 'unknown'}`,
+      msg.prev ? `Previous line: ${oneLine(msg.prev)}` : '',
+      `The line: ${zh}`,
+      msg.en ? `English subtitle (may be loose): ${oneLine(msg.en)}` : '',
+      msg.next ? `Next line: ${oneLine(msg.next)}` : '',
+      ex && ex.translation ? `Explanation already shown: translation "${ex.translation}"; words: ${(ex.words || []).map(w => `${w.word} ${w.pinyin} = ${w.meaning}`).join('; ')}` : '',
+      history.length ? `Conversation so far:\n${history.join('\n')}` : '',
+      `Learner's question: ${question}`,
+    ].filter(Boolean).join('\n');
+    try {
+      const answer = str(await XiaopinBg.callModel({ system: askSystem(msg.lang), user, maxTokens: 900 }));
+      return answer ? { ok: true, answer } : { error: 'The AI gave an empty answer. Try again.' };
+    } catch (e) {
+      return { error: String(e.message || e) };
+    }
+  });
+
   // For tests.
   self.XiaopinExplain = { hash, clean, SCHEMA };
 })();
