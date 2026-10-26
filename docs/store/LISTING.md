@@ -1,6 +1,6 @@
-# Chrome Web Store listing – Xiaopin 1.3.0
+# Chrome Web Store listing – Xiaopin 1.3.1
 
-Upload: `xiaopin-1.3.0.zip` from https://github.com/pim97/Language-Reactor-alternative/releases/tag/v1.3.0
+Upload: `xiaopin-1.3.1.zip` from https://github.com/pim97/Language-Reactor-alternative/releases/tag/v1.3.1
 (the zip itself, not unzipped).
 
 ## Store listing tab
@@ -8,7 +8,7 @@ Upload: `xiaopin-1.3.0.zip` from https://github.com/pim97/Language-Reactor-alter
 **Name** (comes from the manifest): Xiaopin – Pinyin Subtitles
 
 **Summary** (from the manifest, max 132 characters):
-Learn Mandarin from video: pinyin, Chinese characters and English subtitles together, with word lookup, character breakdown and a word list.
+Learn Mandarin from video: pinyin, Chinese characters and English subtitles together, with word lookup and a word list.
 
 **Category:** Education
 **Language:** English
