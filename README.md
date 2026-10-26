@@ -36,8 +36,11 @@ If a stream already has English burned into the picture, the extension hides its
 
 ## Install
 
-1. Download or clone this repository.
-2. Open `chrome://extensions`, turn on **Developer mode** and click **Load unpacked**. Pick this folder.
+[![Build extension](https://github.com/pim97/Language-Reactor-alternative/actions/workflows/build.yml/badge.svg)](https://github.com/pim97/Language-Reactor-alternative/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/pim97/Language-Reactor-alternative?label=download)](https://github.com/pim97/Language-Reactor-alternative/releases/latest)
+
+1. Download **`xiaopin-<version>.zip`** from the [latest release](https://github.com/pim97/Language-Reactor-alternative/releases/latest) and unzip it.
+2. Open `chrome://extensions` (also works in Edge and Brave), turn on **Developer mode** and click **Load unpacked**. Pick the unzipped `xiaopin-<version>` folder.
 3. Click the extension icon to open the settings. Add an OpenRouter or Anthropic API key if you want AI translation. The default model is Claude Haiku 5.5 (fast, accurate, about half a cent per episode).
 
 ## Privacy and what it does not do
@@ -48,6 +51,14 @@ If a stream already has English burned into the picture, the extension hides its
 - This repository contains **no subtitles, video or screenshots** from any show.
 
 Use it for personal study, in line with the terms of the sites you watch.
+
+To update, download the new zip, replace the folder, and click ↻ on the extension in `chrome://extensions`. Your word list and settings are kept.
+
+Prefer the latest code? Clone the repository and load the folder itself, or grab the zip from any [Actions run](https://github.com/pim97/Language-Reactor-alternative/actions/workflows/build.yml) under *Artifacts*.
+
+### Making a release
+
+Bump `version` in `manifest.json`, commit, then tag it: `git tag v1.2.1 && git push --tags`. The workflow checks that the tag matches the manifest and publishes the zip as a release.
 
 ## How it works
 
