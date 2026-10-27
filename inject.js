@@ -48,7 +48,8 @@
 
   // Switch the YouTube player to Chinese captions (or English if there are none),
   // the same as picking them in the CC menu. The player then loads that track.
-  function enableYoutubeCaptions(reload) {
+  // chineseOnly: leave videos without a Chinese track alone and just report that.
+  function enableYoutubeCaptions(reload, chineseOnly) {
     const p = document.querySelector('#movie_player');
     const videoId = new URLSearchParams(location.search).get('v') || '';
     const tracks = p?.getPlayerResponse?.()?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
@@ -62,18 +63,24 @@
       return 9;
     };
     const best = [...tracks].sort((a, b) => score(a) - score(b))[0];
-    if (score(best) === 9) return post({ type: 'yt-captions', videoId, available: true, picked: '' });
+    if (score(best) === 9) return post({ type: 'yt-captions', videoId, available: true, picked: '', noChinese: true });
+    if (chineseOnly && !best.languageCode.toLowerCase().startsWith('zh')) {
+      return post({ type: 'yt-captions', videoId, available: true, picked: '', noChinese: true });
+    }
     // On a retry the captions module is reloaded: sometimes the player marks a track
     // as on without ever fetching it, and only a fresh module makes it load.
     if (reload) { try { p.unloadModule('captions'); } catch (e) {} }
     p.loadModule('captions');
     p.setOption('captions', 'track', { languageCode: best.languageCode, ...(best.kind ? { kind: best.kind } : {}) });
-    post({ type: 'yt-captions', videoId, available: true, picked: best.languageCode + (best.kind === 'asr' ? ' (auto)' : '') });
+    post({ type: 'yt-captions', videoId, available: true, picked: best.languageCode + (best.kind === 'asr' ? ' (auto)' : ''),
+      chinese: best.languageCode.toLowerCase().startsWith('zh') });
   }
 
   window.addEventListener('message', e => {
     if (e.source !== window || e.data?.source !== 'crpy-content') return;
-    if (e.data.type === 'yt-enable-captions') { try { enableYoutubeCaptions(!!e.data.reload); } catch (err) {} }
+    if (e.data.type === 'yt-enable-captions') {
+      try { enableYoutubeCaptions(!!e.data.reload, !!e.data.chineseOnly); } catch (err) {}
+    }
   });
 
   // ---- hooks ----

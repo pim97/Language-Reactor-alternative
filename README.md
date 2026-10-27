@@ -23,7 +23,8 @@ Meet **Xiaopin**, the red panda (小熊猫) who reads along with you.
 - **History panel**: every line so far with pinyin, characters and English; click a line to jump back.
 - **Word list**: save words with ☆ together with the sentence they came from. Export to Anki or CSV.
 - **Listening keys**: `A` previous line · `S` repeat line · `D` next line.
-- **Video, History or Both**: show subtitles on the video, only in the history panel (clean picture), or both. One click in the toolbar or key `H`.
+- **Off, Video, History or Both**: turn Xiaopin off for this video, or show subtitles on the video, only in the history panel (clean picture), or both. One click in the toolbar or key `H`.
+- **Only on Chinese videos**: by default Xiaopin turns itself on only for videos with Chinese captions, audio or subtitles; other videos stay untouched (no captions switched, no AI). Each video remembers if you turned it on or off.
 - **Move things around**: drag the word popup by its header and it stays open where you put it (✕ or `Esc` closes it); drag the history panel to float it and resize it at the corner. Double-click a header to put it back.
 - **Known words**: mark words as new, learning, known or ignored (popup buttons or keys `1`–`4`). New words get a blue dotted underline, words you are learning an amber one.
 - **Comprehension %**: the toolbar shows how much of the episode's vocabulary you already know, so you can pick videos at your level. Beginners can count HSK 1–N as known.

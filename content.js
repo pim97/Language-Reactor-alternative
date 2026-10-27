@@ -10,6 +10,7 @@
     hideCard: false,   // true = subtitles only in the history panel, not on the video
     explainLang: 'en', // language of AI explanations: 'en' | 'nl'
     extraLang: '',     // extra subtitle line under the English: '' (off) | 'nl'
+    autoMode: 'chinese', // turn on by itself: 'chinese' (videos with Chinese) | 'always' | 'manual'
   };
   let view = { ...VIEW_DEFAULTS };
 
@@ -29,7 +30,50 @@
     extraPort: null,
     extraKey: '',         // what the running/finished extra translation was started for
     extraFails: 0,        // failed attempts for this video (stops after 2, so no endless paid retries)
+    active: null,         // on for this video? null = not decided yet
   };
+
+  // ---------- on or off per video ----------
+  // By default Xiaopin only turns itself on for videos with Chinese (Chinese captions
+  // on YouTube; Chinese audio or subtitles on Crunchyroll). The Off / Video / History /
+  // Both switch overrides that per video, and the choice is remembered.
+  let videoOn = {};   // { mediaId: true | false }
+  let lastActiveFor = null;   // mediaId st.active was decided for
+  chrome.storage.local.get('videoOn').then(v => { videoOn = v.videoOn || {}; });
+
+  function decideActive(mediaId, chinese) {
+    if (typeof videoOn[mediaId] === 'boolean') return videoOn[mediaId];
+    if (view.autoMode === 'always') return true;
+    if (view.autoMode === 'manual') return false;
+    return !!chinese;
+  }
+
+  async function rememberVideo(mediaId, on) {
+    const all = (await chrome.storage.local.get('videoOn')).videoOn || {};
+    all[mediaId] = on;
+    videoOn = all;
+    await chrome.storage.local.set({ videoOn: all });
+  }
+
+  // The user switched this video on or off.
+  function setVideoActive(on) {
+    if (!st.mediaId) return;
+    rememberVideo(st.mediaId, on);
+    if (!on) {
+      st.active = false;
+      if (st.port) { st.port.disconnect(); st.port = null; }
+      if (st.extraPort) { st.extraPort.disconnect(); st.extraPort = null; st.extraKey = ''; }
+      if (popupWord) closePopup();
+      setStatus('Off for this video. Choose Video, History or Both to turn it on.');
+      applyView();
+      return;
+    }
+    st.active = true;
+    applyView();
+    // Start (again) from what the site gave us; saved translations make this free.
+    if (SITE === 'crunchyroll' && lastPlay) onCrunchyrollPlay(lastPlay);
+    if (SITE === 'youtube') ytActivate();
+  }
 
   // ---------- feature plugins ----------
   // Files in features/ load after this script and call Xiaopin.register({...}).
@@ -58,7 +102,7 @@
   window.addEventListener('message', e => {
     if (e.source !== window || !e.data || e.data.source !== 'crpy-inject') return;
     const d = e.data;
-    if (d.type === 'play') { lastSubs = d.subtitles; onCrunchyrollPlay(d); }
+    if (d.type === 'play') { lastSubs = d.subtitles; lastPlay = d; onCrunchyrollPlay(d); }
     if (d.type === 'stream') {
       st.burnedIn = d.burnedIn;
       if (root) root.classList.toggle('crpy-burned', burnedEnglish());
@@ -86,6 +130,7 @@
     if (st.extraPort) { st.extraPort.disconnect(); st.extraPort = null; }
     Object.assign(st, { mediaId, en: [], zh: [], enSource: null, zhSource: null, offset: 0, burnedIn: '',
       extra: [], extraFrom: null, extraKey: '', extraFails: 0 });
+    if (st.mediaId !== lastActiveFor) { st.active = null; lastActiveFor = st.mediaId; }
     st.title = videoTitle();
     if (root) root.classList.remove('crpy-burned');
     historyCount = -1;
@@ -99,13 +144,19 @@
   // ---------- Crunchyroll ----------
 
   let lastSubs = {};
+  let lastPlay = null;   // last playback info, to start again when the user turns Xiaopin on
 
-  async function onCrunchyrollPlay({ mediaId, subtitles }) {
+  async function onCrunchyrollPlay({ mediaId, subtitles, audioLocale }) {
     reset(mediaId);
-    setStatus('Loading subtitles…');
-
     const enTrack = subtitles['en-US'] || Object.entries(subtitles).find(([k]) => k.startsWith('en'))?.[1];
     const zhTrack = subtitles['zh-CN'] || Object.entries(subtitles).find(([k]) => k.startsWith('zh'))?.[1];
+
+    // A Chinese show (Chinese audio) or Chinese subtitles: on by itself. Otherwise
+    // (e.g. Japanese anime) it stays off until the user turns it on.
+    if (st.active === null) st.active = decideActive(mediaId, /^zh/i.test(audioLocale || '') || !!zhTrack);
+    applyView();
+    if (!st.active) return setStatus('Off for this episode (no Chinese). Choose Video, History or Both to turn it on.');
+    setStatus('Loading subtitles…');
 
     try {
       if (enTrack) { st.en = CrpySubs.parse(await fetchText(enTrack.url), '.ass'); st.enSource = 'crunchyroll'; }
@@ -147,10 +198,33 @@
 
   function ytVideoId() { return new URLSearchParams(location.search).get('v') || ''; }
 
-  function onYoutubeTrack({ videoId, lang, tlang, data }) {
-    if (!videoId) return;
+  // Caption tracks the player loaded for the current video. Kept even while Xiaopin is
+  // off, so turning it on later needs no new request.
+  let ytTracks = [];
+
+  function onYoutubeTrack(d) {
+    if (!d.videoId) return;
+    const mediaId = 'yt:' + d.videoId;
+    if (st.mediaId !== mediaId) { reset(mediaId); ytTracks = []; }
+    ytTracks.push(d);
+    const l = (d.tlang || d.lang).toLowerCase();
+    // A Chinese track turns a not-yet-decided video on (unless the user said otherwise).
+    if (st.active === null && l.startsWith('zh')) st.active = decideActive(mediaId, true);
+    if (st.active) useYoutubeTrack(d);
+    else applyView();
+  }
+
+  // Turned on by the user, or a Chinese track arrived: use what we have, and make
+  // sure the player loads captions (any language) if it has none yet.
+  function ytActivate() {
+    const tracks = ytTracks;
+    ytTracks = [];
+    for (const d of tracks) onYoutubeTrack(d);
+    if (!tracks.length) { ytAskedFor = ''; ytEnsureCaptions(true); }
+  }
+
+  function useYoutubeTrack({ videoId, lang, tlang, data }) {
     const mediaId = 'yt:' + videoId;
-    if (st.mediaId !== mediaId) reset(mediaId);
     const cues = CrpySubs.parseJson3(data);
     if (!cues.length) return;
     const l = (tlang || lang).toLowerCase();
@@ -169,7 +243,7 @@
   }
 
   async function ytDecide(mediaId) {
-    if (st.mediaId !== mediaId) return;
+    if (st.mediaId !== mediaId || !st.active) return;
     if (st.zhSource === 'youtube' && st.enSource === 'youtube') return setStatus('Chinese and English from YouTube');
     if (st.zhSource === 'youtube' && !st.en.length) return startTranslation('zh2en', false);
     if (st.enSource === 'youtube' && !st.zh.length) {
@@ -178,27 +252,48 @@
     }
   }
 
-  function onYoutubeCaptionState({ videoId, picked, available }) {
-    if (st.mediaId !== 'yt:' + videoId && videoId) reset('yt:' + videoId);
+  function onYoutubeCaptionState({ videoId, picked, available, noChinese, chinese }) {
+    const mediaId = 'yt:' + videoId;
+    if (st.mediaId !== mediaId && videoId) { reset(mediaId); ytTracks = []; }
+    if (st.active === null) {
+      st.active = decideActive(mediaId, !!chinese);
+      if (st.active) ytActivate();
+      applyView();
+    }
+    if (!st.active) return setStatus(noChinese || !available
+      ? 'Off: this video has no Chinese captions. Choose Video, History or Both to turn it on anyway.'
+      : 'Off for this video. Choose Video, History or Both to turn it on.');
     if (!available) setStatus('This video has no captions, so there is nothing to show.');
     else if (picked) setStatus(`Turned on ${picked} captions…`);
+    else if (noChinese) setStatus('This video has no Chinese or English captions to show.');
   }
 
-  // Ask the page script to switch the YouTube player to Chinese (or English) captions.
+  // Ask the page script to switch the YouTube player to Chinese captions. While a
+  // video is not (yet) on, only Chinese is asked for: other videos are left alone.
   let ytAskedFor = '';
-  function ytEnsureCaptions() {
+  function ytEnsureCaptions(any = false) {
     const id = ytVideoId();
     if (!id || ytAskedFor === id) return;
     const p = document.querySelector('#movie_player');
     if (!p || !video || video.readyState < 1) return;
+    // Turned off for this video, or "only when I turn it on": do nothing at all.
+    if (!any && (videoOn['yt:' + id] === false || (view.autoMode === 'manual' && videoOn['yt:' + id] !== true))) {
+      ytAskedFor = id;
+      if (st.mediaId !== 'yt:' + id) { reset('yt:' + id); ytTracks = []; }
+      st.active = false;
+      applyView();
+      return setStatus('Off for this video. Choose Video, History or Both to turn it on.');
+    }
+    const chineseOnly = !any && view.autoMode === 'chinese' && videoOn['yt:' + id] !== true;
     ytAskedFor = id;
-    window.postMessage({ source: 'crpy-content', type: 'yt-enable-captions' }, location.origin);
+    window.postMessage({ source: 'crpy-content', type: 'yt-enable-captions', chineseOnly }, location.origin);
     // No caption data after a few seconds: ask again with a fresh captions module.
     for (const wait of [4000, 10000]) {
       setTimeout(() => {
         const has = st.mediaId === 'yt:' + id && (st.zhSource === 'youtube' || st.enSource === 'youtube');
-        if (!has && ytVideoId() === id) {
-          window.postMessage({ source: 'crpy-content', type: 'yt-enable-captions', reload: true }, location.origin);
+        // Only for a video that is (or may become) on; an off video is left alone.
+        if (!has && ytVideoId() === id && st.active !== false) {
+          window.postMessage({ source: 'crpy-content', type: 'yt-enable-captions', reload: true, chineseOnly }, location.origin);
         }
       }, wait);
     }
@@ -208,6 +303,7 @@
 
   // en2zh: fill Chinese from English lines. zh2en: fill English from Chinese lines.
   function startTranslation(direction, force) {
+    if (st.active === false) return;   // off for this video: no AI calls
     if (st.port) st.port.disconnect();
     const mediaId = st.mediaId;
     const src = direction === 'en2zh' ? st.en : st.zh;
@@ -261,7 +357,7 @@
   // Called on every refresh, so it must stay a cheap check.
   function ensureExtra() {
     const lang = view.extraLang;
-    if (!lang || !st.mediaId || st.extraPort || st.extraFails >= 2) return;
+    if (!lang || !st.mediaId || !st.active || st.extraPort || st.extraFails >= 2) return;
     const from = extraSource();
     if (!from) return;
     const src = (from === 'zh' ? st.zh : st.en).filter(c => c.text);
@@ -533,13 +629,17 @@
     }
   }
 
-  // Where subtitles show: on the video, only in the history panel, or both.
+  // Where subtitles show: off for this video, on the video, only in the history
+  // panel, or both. Off is per video; the other three are one setting for all.
   const LAYOUTS = ['video', 'history', 'both'];
   function layoutMode() {
+    if (st.active === false) return 'off';
     if (!view.showHistory) return 'video';
     return view.hideCard ? 'history' : 'both';
   }
   function setLayout(mode) {
+    if (mode === 'off') return setVideoActive(false);
+    if (st.active === false) setVideoActive(true);
     chrome.storage.sync.set({ showHistory: mode !== 'video', hideCard: mode === 'history' });
   }
 
@@ -562,9 +662,12 @@
       root.querySelectorAll('[data-a="layout"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === mode)));
       root.querySelectorAll('[data-a="lang"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === view.explainLang)));
       root.querySelectorAll('[data-a="extra"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (view.extraLang || ''))));
-      historyEl.hidden = !view.showHistory;
+      root.querySelectorAll('[data-a="auto"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === view.autoMode)));
+      root.classList.toggle('crpy-inactive', st.active === false);
+      historyEl.hidden = !view.showHistory || st.active === false;
     }
-    document.documentElement.classList.toggle('crpy-hide-native', !!view.hideNative);
+    // While off, the site's own subtitles stay as they are.
+    document.documentElement.classList.toggle('crpy-hide-native', !!view.hideNative && st.active !== false);
     callFeatures('onView', api);
     refreshAll();
   }
@@ -916,7 +1019,8 @@
       </div>
       <div class="crpy-buttons">
         <button class="crpy-btn crpy-logo" data-a="menu" title="Xiaopin menu"><img class="crpy-mascot" src="${mascot}" alt="">Xiaopin</button>
-        <div class="crpy-seg" role="group" aria-label="Where subtitles show (H)" title="Where subtitles show (H)">
+        <div class="crpy-seg" role="group" aria-label="Where subtitles show (H)" title="Where subtitles show (H). Off is for this video only.">
+          <button data-a="layout" data-v="off" title="Off for this video: nothing shown, nothing translated">Off</button>
           <button data-a="layout" data-v="video">Video</button>
           <button data-a="layout" data-v="history"><span class="crpy-btn-ic">史</span>History</button>
           <button data-a="layout" data-v="both">Both</button>
@@ -933,6 +1037,12 @@
         ${sw('showEnglish', 'English')}
         ${sw('toneColors', 'Tone colours')}
         <div class="crpy-row">Text size <button data-a="smaller">A−</button><button data-a="bigger">A+</button></div>
+        <div class="crpy-row crpy-lang-row">Turn on by itself
+          <span class="crpy-seg" role="group" aria-label="When Xiaopin turns on by itself">
+            <button data-a="auto" data-v="chinese" title="Videos with Chinese captions, Chinese audio or Chinese subtitles">Chinese videos</button>
+            <button data-a="auto" data-v="always">Always</button>
+            <button data-a="auto" data-v="manual" title="Only on videos where you choose Video, History or Both">Never</button>
+          </span></div>
         <div class="crpy-row crpy-lang-row">Extra line
           <span class="crpy-seg" role="group" aria-label="Extra subtitle line">
             <button data-a="extra" data-v="">Off</button>
@@ -1082,6 +1192,7 @@
       if (a === 'layout') { const b = e.target.closest('[data-a="layout"]'); setLayout(b.dataset.v); }
       if (a === 'lang') chrome.storage.sync.set({ explainLang: e.target.closest('[data-a="lang"]').dataset.v });
       if (a === 'extra') chrome.storage.sync.set({ extraLang: e.target.closest('[data-a="extra"]').dataset.v });
+      if (a === 'auto') chrome.storage.sync.set({ autoMode: e.target.closest('[data-a="auto"]').dataset.v });
       if (a === 'closehist') setLayout('video');
       if (a === 'file') fileInput.click();
       if (a === 'clearfile') clearFile();

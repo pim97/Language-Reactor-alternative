@@ -442,6 +442,12 @@
 
 /* "History" mode: subtitles only in the panel, the video stays clean */
 .crpy-hide-card .crpy-lines { display: none; }
+
+/* Off for this video: only the toolbar (on hover) and the menu remain */
+.crpy-inactive .crpy-lines,
+.crpy-inactive .crpy-history,
+.crpy-inactive .crpy-popup { display: none !important; }
+.crpy-seg button[data-v="off"][aria-pressed="true"] { background: #5b5d6b; }
 .crpy-mascot { width: 24px; height: 24px; display: block; }
 
 .crpy-panel-head {

@@ -146,6 +146,13 @@
       <span style="color:#6fdc95">mǎ 3</span><span style="color:#72a9ff">mà 4</span><span style="color:#b9bccb">ma neutral</span>
     </div>
     <label class="field">Font size (px) <input type="text" id="fontSize" inputmode="numeric" style="max-width:120px"></label>
+    <label class="field">Turn on by itself (you can always switch a single video on or off with the Off / Video / History / Both switch)
+      <select id="autoMode" style="max-width:320px">
+        <option value="chinese">Only for videos with Chinese (captions, audio or subtitles)</option>
+        <option value="always">On every video</option>
+        <option value="manual">Never: only when I turn it on</option>
+      </select>
+    </label>
     <label class="field">Extra subtitle line under the English (AI, captures the feel of the line)
       <select id="extraLang" style="max-width:220px">
         <option value="">Off</option>

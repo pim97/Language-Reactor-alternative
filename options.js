@@ -12,6 +12,7 @@ const DEFAULTS = {
   toneColors: true,
   explainLang: 'en',
   extraLang: '',
+  autoMode: 'chinese',
   fontSize: 30,
 };
 
